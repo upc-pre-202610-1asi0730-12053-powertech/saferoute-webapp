@@ -1,0 +1,32 @@
+{
+  "option": {
+    "home": "Inicio",
+    "about": "Acerca de",
+    "profiles": "Perfiles",
+    "routes": "Rutas",
+    "trips": "Viajes",
+    "plans": "Planes",
+    "alerts": "Alertas"
+  },
+  "authoring-phrase": {
+    "intro": "Hecho con",
+    "use": "utilizando",
+    "author": "por el Equipo de Desarrollo de {brand}"
+  },
+  "about": {
+    "title": "Acerca de Nosotros",
+    "content": "PowerTech está revolucionando el transporte escolar con SafeRoute."
+  },
+  "home": {
+    "title": "Inicio",
+    "content": "Bienvenido a la Plataforma SafeRoute."
+  },
+  "page-not-found": {
+    "title": "Página no encontrada",
+    "content": "La ruta {unavailable-route} no está disponible.",
+    "go-home": "Ir al Inicio"
+  },
+  "errors": {
+    "occurred": "Ocurrieron errores"
+  }
+}
