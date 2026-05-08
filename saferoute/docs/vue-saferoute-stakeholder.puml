@@ -1,0 +1,150 @@
+@startuml
+skinparam monochrome false
+
+package "stakeholder.domain.model" {
+  class Parent {
+    - id: string
+    - fullName: string
+    - email: string
+    - phoneNumber: string
+    - organizationId: string
+    - children: Child[]
+  }
+  class Driver {
+    - id: string
+    - fullName: string
+    - email: string
+    - phoneNumber: string
+    - licenseNumber: string
+    - organizationId: string
+  }
+  class Child {
+    - id: string
+    - fullName: string
+    - age: number
+    - enrollmentState: string
+    - parentId: string
+  }
+  class StudentGroup {
+    - id: string
+    - name: string
+    - organizationId: string
+    - childIds: string[]
+    - isFinalized: boolean
+  }
+}
+
+package "stakeholder.application" {
+  class StakeholderStore {
+    - parents
+    - drivers
+    - children
+    - groups
+    + loadParents(organizationId): void
+    + loadDrivers(organizationId): void
+    + loadChildren(parentId): void
+    + loadGroups(organizationId): void
+    + createParent(request): void
+    + createDriver(request): void
+    + createChild(request): void
+    + createGroup(request): void
+    + finalizeGroup(groupId): void
+  }
+}
+
+package "stakeholder.infrastructure" {
+  class StakeholderApi {
+    + createParent(request)
+    + getParentsByOrganization(organizationId)
+    + createDriver(request)
+    + getDriversByOrganization(organizationId)
+    + createChild(request)
+    + getChildrenByParent(parentId)
+    + createStudentGroup(request)
+    + getGroupsByOrganization(organizationId)
+    + finalizeGroup(groupId)
+  }
+  class ParentAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+  class DriverAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+  class ChildAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+  class StudentGroupAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+}
+
+package "stakeholder.presentation.components" {
+  class ParentList {
+    - parents: Parent[]
+    - searchQuery: string
+    + filterParents(): void
+    + selectParent(parent): void
+    + parentSelected(): void <<event>>
+    + parentDeleted(): void <<event>>
+  }
+  class DriverList {
+    - drivers: Driver[]
+    - searchQuery: string
+    + filterDrivers(): void
+    + selectDriver(driver): void
+    + driverSelected(): void <<event>>
+    + driverDeleted(): void <<event>>
+  }
+  class ChildList {
+    - children: Child[]
+    - searchQuery: string
+    + filterChildren(): void
+    + selectChild(child): void
+    + childSelected(): void <<event>>
+    + childDeleted(): void <<event>>
+  }
+  class StudentGroupList {
+    - groups: StudentGroup[]
+    - searchQuery: string
+    + filterGroups(): void
+    + selectGroup(group): void
+    + groupSelected(): void <<event>>
+    + groupFinalized(): void <<event>>
+  }
+}
+
+' ─── Referencias a otros paquetes ────────────────────────────────────────────
+package "shared.presentation.components" {
+  class Layout {
+  }
+}
+
+Parent --> Child
+StakeholderStore ..> "stakeholder.domain.model.Parent" : uses
+StakeholderStore ..> "stakeholder.domain.model.Driver" : uses
+StakeholderStore ..> "stakeholder.domain.model.Child" : uses
+StakeholderStore ..> "stakeholder.domain.model.StudentGroup" : uses
+StakeholderStore ..> "stakeholder.infrastructure.StakeholderApi" : uses
+StakeholderStore ..> "stakeholder.infrastructure.ParentAssembler" : uses
+StakeholderStore ..> "stakeholder.infrastructure.DriverAssembler" : uses
+StakeholderStore ..> "stakeholder.infrastructure.ChildAssembler" : uses
+StakeholderStore ..> "stakeholder.infrastructure.StudentGroupAssembler" : uses
+ParentAssembler ..> "stakeholder.domain.model.Parent" : creates
+DriverAssembler ..> "stakeholder.domain.model.Driver" : creates
+ChildAssembler ..> "stakeholder.domain.model.Child" : creates
+StudentGroupAssembler ..> "stakeholder.domain.model.StudentGroup" : creates
+ParentList --> "stakeholder.domain.model.Parent" : uses
+DriverList --> "stakeholder.domain.model.Driver" : uses
+ChildList --> "stakeholder.domain.model.Child" : uses
+StudentGroupList --> "stakeholder.domain.model.StudentGroup" : uses
+Layout --> ParentList : uses
+Layout --> DriverList : uses
+Layout --> ChildList : uses
+Layout --> StudentGroupList : uses
+Layout --> StakeholderStore : uses
+
+@enduml

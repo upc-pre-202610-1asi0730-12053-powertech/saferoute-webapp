@@ -1,0 +1,121 @@
+@startuml
+skinparam monochrome false
+
+package "trip.domain.model" {
+  class Trip {
+    - id: string
+    - organizationId: string
+    - routeId: string
+    - driverId: string
+    - tripState: string
+    - startTime: string
+    - endTime: string
+    - attendances: Attendance[]
+    - incidents: Incident[]
+  }
+  class Attendance {
+    - id: string
+    - tripId: string
+    - childId: string
+    - boardingState: string
+    - boardedAt: string
+  }
+  class Incident {
+    - id: string
+    - tripId: string
+    - description: string
+    - reportedAt: string
+  }
+}
+
+package "trip.application" {
+  class TripStore {
+    - currentTrip
+    - attendances
+    - incidents
+    + startTrip(request): void
+    + completeTrip(id): void
+    + updateBoardingStatus(tripId, childId, state): void
+    + reportIncident(tripId, description): void
+    + loadAttendances(tripId): void
+    + loadIncidents(tripId): void
+  }
+}
+
+package "trip.infrastructure" {
+  class TripApi {
+    + startTrip(request)
+    + getTripById(id)
+    + completeTrip(id)
+    + updateBoardingStatus(tripId, request)
+    + getAttendancesByTrip(tripId)
+    + reportIncident(tripId, request)
+    + getIncidentsByTrip(tripId)
+  }
+  class TripAssembler {
+    + toEntityFromResource(resource)
+  }
+  class AttendanceAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+  class IncidentAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+}
+
+package "trip.presentation.components" {
+  class TripDashboard {
+    - trip: Trip
+    - tripState: string
+    + startTrip(): void
+    + completeTrip(): void
+    + getTripState(): string
+    + tripStarted(): void <<event>>
+    + tripCompleted(): void <<event>>
+  }
+  class AttendanceChecklist {
+    - attendances: Attendance[]
+    - pendingCount: number
+    + updateBoardingState(childId, state): void
+    + getPendingCount(): number
+    + isAllBoarded(): boolean
+    + boardingUpdated(): void <<event>>
+  }
+  class IncidentForm {
+    - description: string
+    - errorMessage: string
+    + submitIncident(): void
+    + clearFields(): void
+    + incidentReported(): void <<event>>
+  }
+}
+
+' ─── Referencias a otros paquetes ────────────────────────────────────────────
+package "shared.presentation.components" {
+  class Layout {
+  }
+}
+
+Trip --> Attendance
+Trip --> Incident
+TripStore ..> "trip.domain.model.Trip" : uses
+TripStore ..> "trip.domain.model.Attendance" : uses
+TripStore ..> "trip.domain.model.Incident" : uses
+TripStore ..> "trip.infrastructure.TripApi" : uses
+TripStore ..> "trip.infrastructure.TripAssembler" : uses
+TripStore ..> "trip.infrastructure.AttendanceAssembler" : uses
+TripStore ..> "trip.infrastructure.IncidentAssembler" : uses
+TripAssembler ..> "trip.domain.model.Trip" : creates
+AttendanceAssembler ..> "trip.domain.model.Attendance" : creates
+IncidentAssembler ..> "trip.domain.model.Incident" : creates
+TripDashboard --> "trip.domain.model.Trip" : uses
+AttendanceChecklist --> "trip.domain.model.Attendance" : uses
+IncidentForm --> "trip.domain.model.Incident" : uses
+Layout --> TripDashboard : uses
+Layout --> AttendanceChecklist : uses
+Layout --> IncidentForm : uses
+Layout --> TripStore : uses
+
+@enduml

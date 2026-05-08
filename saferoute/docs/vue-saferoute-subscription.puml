@@ -1,0 +1,92 @@
+@startuml
+skinparam monochrome false
+
+package "subscription.domain.model" {
+  class Subscription {
+    - id: string
+    - organizationId: string
+    - planId: string
+    - state: string
+    - startDate: string
+    - endDate: string
+  }
+  class Plan {
+    - id: string
+    - planTier: string
+    - maxRoutes: number
+    - maxDrivers: number
+    - price: number
+  }
+}
+
+package "subscription.application" {
+  class SubscriptionStore {
+    - subscription
+    - plans
+    + loadPlans(): void
+    + loadSubscription(organizationId): void
+    + createSubscription(request): void
+    + upgradeSubscription(id, planId): void
+    + cancelSubscription(id): void
+  }
+}
+
+package "subscription.infrastructure" {
+  class SubscriptionApi {
+    + createSubscription(request)
+    + getSubscriptionByOrganization(organizationId)
+    + upgradeSubscription(id, planId)
+    + cancelSubscription(id)
+    + getAllPlans()
+  }
+  class SubscriptionAssembler {
+    + toEntityFromResource(resource)
+  }
+  class PlanAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+}
+
+package "subscription.presentation.components" {
+  class PlanSelector {
+    - selectedPlan: Plan
+    - errorMessage: string
+    + selectPlan(plan): void
+    + confirmSelection(): void
+    + clearSelection(): void
+    + planSelected(): void <<event>>
+  }
+  class SubscriptionStatus {
+    - subscription: Subscription
+    - plan: Plan
+    + getStatusLabel(): string
+    + getRemainingDays(): number
+    + isActive(): boolean
+    + upgradeRequested(): void <<event>>
+    + cancelRequested(): void <<event>>
+  }
+}
+
+' ─── Referencias a otros paquetes ────────────────────────────────────────────
+package "shared.presentation.components" {
+  class Layout {
+  }
+}
+
+SubscriptionStore ..> "subscription.domain.model.Subscription" : uses
+SubscriptionStore ..> "subscription.domain.model.Plan" : uses
+SubscriptionStore ..> "subscription.infrastructure.SubscriptionApi" : uses
+SubscriptionStore ..> "subscription.infrastructure.SubscriptionAssembler" : uses
+SubscriptionStore ..> "subscription.infrastructure.PlanAssembler" : uses
+SubscriptionAssembler ..> "subscription.domain.model.Subscription" : creates
+PlanAssembler ..> "subscription.domain.model.Plan" : creates
+PlanSelector --> "subscription.domain.model.Plan" : uses
+PlanSelector --> SubscriptionStore : uses
+SubscriptionStatus --> "subscription.domain.model.Subscription" : uses
+SubscriptionStatus --> "subscription.domain.model.Plan" : uses
+Layout --> PlanSelector : uses
+Layout --> SubscriptionStatus : uses
+Layout --> SubscriptionStore : uses
+
+@enduml

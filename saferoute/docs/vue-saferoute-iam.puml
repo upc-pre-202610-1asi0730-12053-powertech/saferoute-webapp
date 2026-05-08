@@ -1,0 +1,124 @@
+@startuml
+skinparam monochrome false
+
+package "iam.domain.model" {
+  class User {
+    - id: string
+    - firstName: string
+    - lastName: string
+    - email: string
+    - roleTier: string
+    - organizationId: string
+  }
+  class Organization {
+    - id: string
+    - name: string
+    - status: string
+    - createdAt: string
+  }
+}
+
+package "iam.application" {
+  class IamStore {
+    - currentUser
+    - organization
+    + signIn(email, password): void
+    + signOut(): void
+    + registerAdmin(request): void
+    + loadOrganization(id): void
+    + createOrganization(request): void
+  }
+}
+
+package "iam.infrastructure" {
+  class IamApi {
+    + signIn(email, password)
+    + registerUser(request)
+    + createOrganization(request)
+    + getOrganizationById(id)
+  }
+  class UserAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+  class OrganizationAssembler {
+    + toEntityFromResource(resource)
+  }
+}
+
+package "iam.presentation.components" {
+  class AdminLoginForm {
+    - email: string
+    - password: string
+    - errorMessage: string
+    + submitLogin(): void
+    + clearFields(): void
+    + adminLoggedIn(): void <<event>>
+    + loginFailed(): void <<event>>
+  }
+  class AdminRegisterForm {
+    - firstName: string
+    - lastName: string
+    - email: string
+    - password: string
+    - confirmPassword: string
+    - errorMessage: string
+    + submitRegister(): void
+    + clearFields(): void
+    + passwordsMatch(): boolean
+    + adminRegistered(): void <<event>>
+    + registrationFailed(): void <<event>>
+  }
+  class UserLoginForm {
+    - email: string
+    - password: string
+    - errorMessage: string
+    + submitLogin(): void
+    + clearFields(): void
+    + userLoggedIn(): void <<event>>
+    + loginFailed(): void <<event>>
+  }
+  class OrganizationForm {
+    - name: string
+    - errorMessage: string
+    + submitOrganization(): void
+    + clearFields(): void
+    + organizationCreated(): void <<event>>
+    + organizationUpdated(): void <<event>>
+  }
+  class OrganizationProfile {
+    - organization: Organization
+    + getStatusLabel(): string
+    + isActive(): boolean
+    + editRequested(): void <<event>>
+    + suspendRequested(): void <<event>>
+  }
+}
+
+' ─── Referencias a otros paquetes ────────────────────────────────────────────
+package "shared.presentation.components" {
+  class Layout {
+  }
+}
+
+User --> Organization
+IamStore ..> "iam.domain.model.User" : uses
+IamStore ..> "iam.domain.model.Organization" : uses
+IamStore ..> "iam.infrastructure.IamApi" : uses
+IamStore ..> "iam.infrastructure.UserAssembler" : uses
+IamStore ..> "iam.infrastructure.OrganizationAssembler" : uses
+UserAssembler ..> "iam.domain.model.User" : creates
+OrganizationAssembler ..> "iam.domain.model.Organization" : creates
+AdminLoginForm --> "iam.domain.model.User" : uses
+AdminRegisterForm --> "iam.domain.model.User" : uses
+UserLoginForm --> "iam.domain.model.User" : uses
+OrganizationForm --> "iam.domain.model.Organization" : uses
+OrganizationProfile --> "iam.domain.model.Organization" : uses
+Layout --> AdminLoginForm : uses
+Layout --> AdminRegisterForm : uses
+Layout --> UserLoginForm : uses
+Layout --> OrganizationForm : uses
+Layout --> OrganizationProfile : uses
+Layout --> IamStore : uses
+
+@enduml

@@ -1,0 +1,123 @@
+@startuml
+skinparam monochrome false
+
+package "notifications.domain.model" {
+  class Notification {
+    - id: string
+    - organizationId: string
+    - parentId: string
+    - tripId: string
+    - category: string
+    - deliveryState: string
+    - message: string
+    - sentAt: string
+    - alerts: Alert[]
+    - announcements: Announcement[]
+  }
+  class Alert {
+    - id: string
+    - notificationId: string
+    - triggeredAt: string
+  }
+  class Announcement {
+    - id: string
+    - notificationId: string
+    - routeId: string
+    - message: string
+    - publishedAt: string
+  }
+}
+
+package "notifications.application" {
+  class NotificationsStore {
+    - notifications
+    - alerts
+    - announcements
+    + loadNotificationsByParent(parentId): void
+    + loadAlerts(notificationId): void
+    + loadAnnouncementsByRoute(routeId): void
+    + createNotification(request): void
+    + triggerAlert(notificationId): void
+    + createAnnouncement(request): void
+    + markAsRead(notificationId): void
+  }
+}
+
+package "notifications.infrastructure" {
+  class NotificationsApi {
+    + createNotification(request)
+    + getNotificationsByParent(parentId)
+    + dispatchNotification(id)
+    + triggerAlert(request)
+    + getAlertsByNotification(notificationId)
+    + createAnnouncement(request)
+    + getAnnouncementsByRoute(routeId)
+  }
+  class NotificationAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+  class AlertAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+  class AnnouncementAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+}
+
+package "notifications.presentation.components" {
+  class NotificationList {
+    - notifications: Notification[]
+    - unreadCount: number
+    + markAsRead(notificationId): void
+    + filterByCategory(category): void
+    + getUnreadCount(): number
+    + notificationRead(): void <<event>>
+  }
+  class AlertPanel {
+    - alerts: Alert[]
+    - hasActivePanic: boolean
+    + triggerPanic(): void
+    + dismissAlert(alertId): void
+    + panicTriggered(): void <<event>>
+    + alertDismissed(): void <<event>>
+  }
+  class AnnouncementForm {
+    - message: string
+    - routeId: string
+    - errorMessage: string
+    + submitAnnouncement(): void
+    + clearFields(): void
+    + announcementPublished(): void <<event>>
+  }
+}
+
+' ─── Referencias a otros paquetes ────────────────────────────────────────────
+package "shared.presentation.components" {
+  class Layout {
+  }
+}
+
+Notification --> Alert
+Notification --> Announcement
+NotificationsStore ..> "notifications.domain.model.Notification" : uses
+NotificationsStore ..> "notifications.domain.model.Alert" : uses
+NotificationsStore ..> "notifications.domain.model.Announcement" : uses
+NotificationsStore ..> "notifications.infrastructure.NotificationsApi" : uses
+NotificationsStore ..> "notifications.infrastructure.NotificationAssembler" : uses
+NotificationsStore ..> "notifications.infrastructure.AlertAssembler" : uses
+NotificationsStore ..> "notifications.infrastructure.AnnouncementAssembler" : uses
+NotificationAssembler ..> "notifications.domain.model.Notification" : creates
+AlertAssembler ..> "notifications.domain.model.Alert" : creates
+AnnouncementAssembler ..> "notifications.domain.model.Announcement" : creates
+NotificationList --> "notifications.domain.model.Notification" : uses
+AlertPanel --> "notifications.domain.model.Alert" : uses
+AnnouncementForm --> "notifications.domain.model.Announcement" : uses
+Layout --> NotificationList : uses
+Layout --> AlertPanel : uses
+Layout --> AnnouncementForm : uses
+Layout --> NotificationsStore : uses
+
+@enduml

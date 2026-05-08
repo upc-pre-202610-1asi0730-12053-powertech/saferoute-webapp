@@ -1,0 +1,154 @@
+@startuml
+skinparam monochrome false
+
+package "fleet.domain.model" {
+  class Route {
+    - id: string
+    - name: string
+    - organizationId: string
+    - routeState: string
+    - departureTime: string
+    - serviceDays: string[]
+    - vehicleId: string
+  }
+  class Stop {
+    - id: string
+    - routeId: string
+    - name: string
+    - latitude: number
+    - longitude: number
+    - stopOrder: number
+  }
+  class Vehicle {
+    - id: string
+    - organizationId: string
+    - plate: string
+    - model: string
+    - brand: string
+    - capacity: number
+  }
+  class Assignment {
+    - id: string
+    - routeId: string
+    - driverId: string
+    - childIds: string[]
+  }
+}
+
+package "fleet.application" {
+  class FleetStore {
+    - routes
+    - stops
+    - vehicles
+    - assignments
+    + loadRoutes(organizationId): void
+    + loadStops(routeId): void
+    + loadVehicles(organizationId): void
+    + createRoute(request): void
+    + activateRoute(id): void
+    + createVehicle(request): void
+    + createAssignment(request): void
+  }
+}
+
+package "fleet.infrastructure" {
+  class FleetApi {
+    + createRoute(request)
+    + getRoutesByOrganization(organizationId)
+    + activateRoute(id)
+    + addStop(request)
+    + getStopsByRoute(routeId)
+    + createVehicle(request)
+    + getVehiclesByOrganization(organizationId)
+    + createAssignment(request)
+    + getAssignmentByRoute(routeId)
+  }
+  class RouteAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+  class StopAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+  class VehicleAssembler {
+    + toEntityFromResource(resource)
+    + toEntitiesFromResponse(response)
+  }
+  class AssignmentAssembler {
+    + toEntityFromResource(resource)
+  }
+}
+
+package "fleet.presentation.components" {
+  class RouteForm {
+    - name: string
+    - departureTime: string
+    - serviceDays: string[]
+    - errorMessage: string
+    + submitRoute(): void
+    + addStop(stop): void
+    + removeStop(stopId): void
+    + clearFields(): void
+    + routeCreated(): void <<event>>
+    + routeUpdated(): void <<event>>
+  }
+  class StopList {
+    - stops: Stop[]
+    + reorderStops(stops): void
+    + selectStop(stop): void
+    + stopSelected(): void <<event>>
+    + stopRemoved(): void <<event>>
+    + stopsReordered(): void <<event>>
+  }
+  class VehicleList {
+    - vehicles: Vehicle[]
+    - searchQuery: string
+    + filterVehicles(): void
+    + selectVehicle(vehicle): void
+    + vehicleSelected(): void <<event>>
+    + vehicleDeleted(): void <<event>>
+  }
+  class AssignmentForm {
+    - selectedDriver
+    - selectedChildren: string[]
+    - errorMessage: string
+    + assignDriver(driverId): void
+    + addChild(childId): void
+    + removeChild(childId): void
+    + submitAssignment(): void
+    + assignmentSubmitted(): void <<event>>
+  }
+}
+
+' ─── Referencias a otros paquetes ────────────────────────────────────────────
+package "shared.presentation.components" {
+  class Layout {
+  }
+}
+
+Route --> Stop
+FleetStore ..> "fleet.domain.model.Route" : uses
+FleetStore ..> "fleet.domain.model.Stop" : uses
+FleetStore ..> "fleet.domain.model.Vehicle" : uses
+FleetStore ..> "fleet.domain.model.Assignment" : uses
+FleetStore ..> "fleet.infrastructure.FleetApi" : uses
+FleetStore ..> "fleet.infrastructure.RouteAssembler" : uses
+FleetStore ..> "fleet.infrastructure.StopAssembler" : uses
+FleetStore ..> "fleet.infrastructure.VehicleAssembler" : uses
+FleetStore ..> "fleet.infrastructure.AssignmentAssembler" : uses
+RouteAssembler ..> "fleet.domain.model.Route" : creates
+StopAssembler ..> "fleet.domain.model.Stop" : creates
+VehicleAssembler ..> "fleet.domain.model.Vehicle" : creates
+AssignmentAssembler ..> "fleet.domain.model.Assignment" : creates
+RouteForm --> "fleet.domain.model.Route" : uses
+StopList --> "fleet.domain.model.Stop" : uses
+VehicleList --> "fleet.domain.model.Vehicle" : uses
+AssignmentForm --> "fleet.domain.model.Assignment" : uses
+Layout --> RouteForm : uses
+Layout --> StopList : uses
+Layout --> VehicleList : uses
+Layout --> AssignmentForm : uses
+Layout --> FleetStore : uses
+
+@enduml

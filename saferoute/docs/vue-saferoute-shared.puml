@@ -1,0 +1,82 @@
+@startuml
+skinparam monochrome false
+
+package "shared.domain.model" {
+  class OrganizationId {
+    - value: string
+  }
+  class UserId {
+    - value: string
+  }
+  class ParentId {
+    - value: string
+  }
+  class DriverId {
+    - value: string
+  }
+  class ChildId {
+    - value: string
+  }
+  class RouteId {
+    - value: string
+  }
+  class TripId {
+    - value: string
+  }
+  class FullName {
+    - firstName: string
+    - lastName: string
+    + getFullName(): string
+  }
+  class Coordinates {
+    - latitude: number
+    - longitude: number
+    + isValid(): boolean
+  }
+}
+
+package "shared.infrastructure" {
+  class ApiClient {
+    - baseUrl: string
+    - http: HttpClient
+    + get(endpoint: string)
+    + post(endpoint: string, body)
+    + put(endpoint: string, body)
+    + delete(endpoint: string)
+  }
+}
+
+package "shared.presentation.components" {
+  class Layout {
+    - drawerVisible: boolean
+    - currentUser
+    - currentRoute
+    + toggleDrawer(): void
+    + setRoute(route): void
+    + onMounted(): void
+  }
+  class NavBar {
+    - currentUser
+    - isAuthenticated: boolean
+    + navigateTo(route): void
+    + logout(): void
+  }
+  class LanguageSwitcher {
+    - currentLang: string
+    - languages: string[]
+    + useLanguage(language: string): void
+  }
+  class Footer {
+    ' static content
+  }
+}
+
+class App
+
+App --> Layout : uses
+Layout --> NavBar : uses
+Layout --> LanguageSwitcher : uses
+Layout --> Footer : uses
+Layout ..> "shared.infrastructure.ApiClient" : uses
+
+@enduml
