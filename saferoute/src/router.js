@@ -2,7 +2,7 @@ import {createRouter, createWebHistory} from "vue-router";
 import Home from "./shared/presentation/views/home.vue";
 import {iamRoutes} from "./iam/presentation/iam-routes.js";
 import {stakeholderRoutes} from "./stakeholder/presentation/stakeholder-routes.js";
-import {routeRoutes} from "./route/presentation/route-routes.js";
+import {routeRoutes} from "./fleet-and-route-planning/presentation/route-routes.js";
 import {tripRoutes} from "./trip/presentation/trip-routes.js";
 import {subscriptionRoutes} from "./subscription/presentation/subscription-routes.js";
 import {notificationRoutes} from "./notification/presentation/notification-routes.js";
@@ -15,7 +15,7 @@ const routes = [
    { path: '/about',           name: 'about',      component: about,       meta: { title: 'About' } },
    { path: '/iam',             children: iamRoutes },
    { path: '/stakeholder',     children: stakeholderRoutes },
-   { path: '/route',           children: routeRoutes },
+   { path: '/fleet-and-route-planning',           children: routeRoutes },
    { path: '/trip',            children: tripRoutes },
    { path: '/subscription',    children: subscriptionRoutes },
    { path: '/notification',    children: notificationRoutes },

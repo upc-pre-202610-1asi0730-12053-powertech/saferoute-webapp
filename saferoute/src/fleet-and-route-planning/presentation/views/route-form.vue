@@ -20,7 +20,7 @@ onMounted(() => {
       form.value.name = routeItem.name;
       form.value.origin = routeItem.origin;
       form.value.destination = routeItem.destination;
-    } else router.push({name: 'route-routes'});
+    } else router.push({name: 'fleet-and-route-planning-routes'});
   }
 });
 
@@ -32,7 +32,7 @@ const saveRoute = () => {
     destination: form.value.destination,
   });
   if (isEdit.value) store.updateRoute(routeItem); else store.addRoute(routeItem);
-  router.push({name: 'route-routes'});
+  router.push({name: 'fleet-and-route-planning-routes'});
 };
 </script>
 
@@ -53,7 +53,7 @@ const saveRoute = () => {
         <pv-input-text id="destination" v-model="form.destination" class="w-full" required/>
       </div>
       <pv-button label="Save" icon="pi pi-save" type="submit"/>
-      <pv-button label="Cancel" class="ml-2" severity="secondary" @click="router.push({name: 'route-routes'})"/>
+      <pv-button label="Cancel" class="ml-2" severity="secondary" @click="router.push({name: 'fleet-and-route-planning-routes'})"/>
     </form>
     <div v-if="store.errors.length" class="text-red-500 mt-3">
       {{ store.errors.map(e => e.message).join(', ') }}

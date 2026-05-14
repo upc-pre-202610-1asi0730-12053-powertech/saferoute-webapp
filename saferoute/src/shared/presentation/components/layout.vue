@@ -14,7 +14,7 @@ const items = [
  {label: 'option.home', to: '/home'},
  {label: 'option.about', to: '/about'},
  {label: 'option.profiles', to: '/stakeholder/profiles'},
- {label: 'option.routes', to: '/route/routes'},
+ {label: 'option.routes', to: '/fleet-and-route-planning/routes'},
  {label: 'option.trips', to: '/trip/trips'},
  {label: 'option.plans', to: '/subscription/plans'},
  {label: 'option.alerts', to: '/notification/alerts'}

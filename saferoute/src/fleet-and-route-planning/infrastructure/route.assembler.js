@@ -1,7 +1,7 @@
 import {Route} from "../domain/model/route.entity.js";
 
 /**
- * Maps route resources into domain entities.
+ * Maps fleet-and-route-planning resources into domain entities.
  *
  * @class RouteAssembler
  */
@@ -15,9 +15,9 @@ export class RouteAssembler {
     }
 
     /**
-     * Parses route resources from a response and maps them into entities.
+     * Parses fleet-and-route-planning resources from a response and maps them into entities.
      *
-     * @param {import('axios').AxiosResponse<Array<Object>|Object>} response - HTTP response with route resources.
+     * @param {import('axios').AxiosResponse<Array<Object>|Object>} response - HTTP response with fleet-and-route-planning resources.
      * @returns {Route[]} Route entities.
      */
     static toEntitiesFromResponse(response) {
