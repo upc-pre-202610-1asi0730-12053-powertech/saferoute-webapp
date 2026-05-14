@@ -1,37 +1,76 @@
 /**
-* Route entity within the Route bounded context.
-*
-* @class Route
-*/
+ * Route class within the Fleet bounded context.
+ *
+ * Defined in fleet.domain.model (vue-saferoute-fleet.puml).
+ * Fields from diagram: id, name, organizationId, routeState, departureTime, serviceDays[], vehicleId.
+ * Additional fields kept for backward-compatibility with existing views.
+ *
+ * @class Route
+ */
 export class Route {
-   #_id;
-   #_name;
-   #_origin;
-   #_destination;
+    /**
+     * @param {Object} params - Route attributes.
+     * @param {?string} [params.id=null] - Route identifier.
+     * @param {string} [params.name=''] - Route name.
+     * @param {?string} [params.organizationId=null] - FK of the owning organization.
+     * @param {string} [params.routeState=''] - Route lifecycle state.
+     * @param {string} [params.departureTime=''] - Scheduled departure time.
+     * @param {string[]} [params.serviceDays=[]] - Days of service (e.g. ['MON','TUE']).
+     * @param {?string} [params.vehicleId=null] - FK of the assigned vehicle.
+     *
+     * Backward-compatible fields used by existing views:
+     * @param {string} [params.origin=''] - Route origin name.
+     * @param {string} [params.destination=''] - Route destination name.
+     * @param {string} [params.type=''] - Route type (OUTBOUND/RETURN).
+     * @param {?string} [params.driverId=null] - Assigned driver ID.
+     * @param {string} [params.driverName=''] - Assigned driver display name.
+     * @param {string} [params.vehiclePlate=''] - Vehicle plate.
+     * @param {string[]} [params.studentIds=[]] - Assigned student IDs.
+     * @param {string} [params.scheduledStartTime=''] - Scheduled start time.
+     * @param {string} [params.status=''] - Status string.
+     * @param {Array} [params.waypoints=[]] - Waypoint data.
+     * @param {number} [params.stops=0] - Number of stops.
+     */
+    constructor({
+                    id = null,
+                    name = '',
+                    organizationId = null,
+                    routeState = '',
+                    departureTime = '',
+                    serviceDays = [],
+                    vehicleId = null,
+                    origin = '',
+                    destination = '',
+                    type = '',
+                    driverId = null,
+                    driverName = '',
+                    vehiclePlate = '',
+                    studentIds = [],
+                    scheduledStartTime = '',
+                    status = '',
+                    waypoints = [],
+                    stops = 0,
+                }) {
+        // Diagram fields
+        this.id = id;
+        this.name = name;
+        this.organizationId = organizationId;
+        this.routeState = routeState || status;
+        this.departureTime = departureTime || scheduledStartTime;
+        this.serviceDays = serviceDays;
+        this.vehicleId = vehicleId;
 
-   /**
-    * @param {Object} params - Entity attributes.
-    * @param {?number} [params.id=null] - Route identifier.
-    * @param {string} [params.name=''] - Route name.
-    * @param {string} [params.origin=''] - Route origin.
-    * @param {string} [params.destination=''] - Route destination.
-    */
-   constructor({ id = null, name = '', origin = '', destination = ''}) {
-       this.#_id = id;
-       this.#_name = name;
-       this.#_origin = origin;
-       this.#_destination = destination;
-   }
-
-   get id() { return this.#_id; }
-   set id(value) { this.#_id = value; }
-
-   get name() { return this.#_name; }
-   set name(value) { this.#_name = value; }
-
-   get origin() { return this.#_origin; }
-   set origin(value) { this.#_origin = value; }
-
-   get destination() { return this.#_destination; }
-   set destination(value) { this.#_destination = value; }
+        // Backward-compatible fields (used by existing views)
+        this.origin = origin;
+        this.destination = destination;
+        this.type = type;
+        this.driverId = driverId;
+        this.driverName = driverName;
+        this.vehiclePlate = vehiclePlate;
+        this.studentIds = studentIds;
+        this.scheduledStartTime = scheduledStartTime || departureTime;
+        this.status = status || routeState;
+        this.waypoints = waypoints;
+        this.stops = stops;
+    }
 }
