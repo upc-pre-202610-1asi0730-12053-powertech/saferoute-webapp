@@ -92,11 +92,11 @@ async function showTripOnMap(trip) {
   const currentStop = wps.find(w => w.name === trip.currentStop) || wps[0];
   const distanceKm = (Math.random() * 5 + 1).toFixed(1); // Simulado
   busMarker = L.marker([currentStop.lat, currentStop.lng], { icon: busIcon, zIndexOffset: 1000 })
-      .addTo(map)
-      .bindPopup(`<b>🚌 ${trip.driverName}</b><br>${trip.currentStop || 'En ruta'}<br><small style="color:#6b7280; font-weight:600"><i class="pi pi-map-marker"></i> Distancia recorrida: ~${distanceKm} km</small>`)
-      .openPopup();
+    .addTo(map)
+    .bindPopup(`<b>🚌 ${trip.driverName}</b><br>${trip.currentStop || 'En ruta'}<br><small style="color:#6b7280; font-weight:600"><i class="pi pi-map-marker"></i> Distancia recorrida: ~${distanceKm} km</small>`)
+    .openPopup();
 
-
+  
   const placeholder = L.polyline(coords, {
     color: lineColor, weight: 5, opacity: 0.3, dashArray: '7 6',
   }).addTo(map);
@@ -178,10 +178,10 @@ onBeforeUnmount(() => {
         <div v-if="loading" class="state-msg"><i class="pi pi-spin pi-spinner"/> Cargando…</div>
 
         <div
-            v-for="trip in trips" :key="trip.id"
-            class="trip-card"
-            :class="{ active: selected?.id === trip.id }"
-            @click="selectTrip(trip)">
+          v-for="trip in trips" :key="trip.id"
+          class="trip-card"
+          :class="{ active: selected?.id === trip.id }"
+          @click="selectTrip(trip)">
 
           <div class="trip-top">
             <span class="trip-name">{{ trip.routeName || `Viaje #${trip.id}` }}</span>
@@ -264,10 +264,10 @@ onBeforeUnmount(() => {
             <p class="wps-mini-title"><i class="pi pi-map-marker"/> Paradas de la ruta</p>
             <div class="wps-mini-list">
               <div
-                  v-for="(wp, i) in getRoute(selected.routeId).waypoints"
-                  :key="i"
-                  class="wp-mini-item"
-                  :class="{ 'wp-current': wp.name === selected.currentStop }">
+                v-for="(wp, i) in getRoute(selected.routeId).waypoints"
+                :key="i"
+                class="wp-mini-item"
+                :class="{ 'wp-current': wp.name === selected.currentStop }">
                 <span class="wp-mini-num"
                       :style="{ background: i === 0 ? '#16a34a' : i === getRoute(selected.routeId).waypoints.length - 1 ? '#dc2626' : '#16305a' }">
                   {{ i + 1 }}

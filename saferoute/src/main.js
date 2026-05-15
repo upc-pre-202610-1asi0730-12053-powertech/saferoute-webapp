@@ -1,11 +1,21 @@
 import { createApp } from 'vue'
 import './style.css'
-import App from './App.vue'
+import App from './app.vue'
 import i18n from "./i18n.js";
 import 'primeflex/primeflex.css';
 import 'primeicons/primeicons.css';
 import Material from '@primeuix/themes/material';
+import { definePreset } from '@primeuix/themes';
 import PrimeVue from 'primevue/config';
+
+const SafeRoutePreset = definePreset(Material, {
+  semantic: {
+    primary: {
+      400 : '#ffb74d',
+      500: '#ffb74d'
+    }
+  }
+});
 import {
    Button,
    Card,
@@ -33,6 +43,7 @@ import {
    Toast,
    ToastService,
    Toolbar,
+   ToggleSwitch,
    Tooltip
 } from "primevue";
 import router from "./router.js";
@@ -40,7 +51,7 @@ import pinia from "./pinia.js";
 
 createApp(App)
    .use(i18n)
-   .use(PrimeVue, {theme: { preset: Material}, ripple: true})
+   .use(PrimeVue, { theme: { preset: SafeRoutePreset }, ripple: true })
    .use(ConfirmationService)
    .use(DialogService)
    .use(ToastService)
@@ -67,6 +78,7 @@ createApp(App)
    .component('pv-textarea',       Textarea)
    .component('pv-toolbar',        Toolbar)
    .component('pv-toast',          Toast)
+   .component('pv-input-switch',   ToggleSwitch)
    .directive('tooltip',           Tooltip)
    .use(router)
    .use(pinia)

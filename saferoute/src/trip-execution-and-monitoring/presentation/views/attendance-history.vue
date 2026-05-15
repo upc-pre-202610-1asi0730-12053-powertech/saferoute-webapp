@@ -139,10 +139,10 @@ const stats = computed(() => {
 const tableRecords = computed(() => {
   const rows = [];
   Object.entries(attendance.value)
-      .sort(([a], [b]) => b.localeCompare(a))
-      .forEach(([date, recs]) => {
-        recs.forEach(r => rows.push({ date, ...r }));
-      });
+    .sort(([a], [b]) => b.localeCompare(a))
+    .forEach(([date, recs]) => {
+      recs.forEach(r => rows.push({ date, ...r }));
+    });
   return rows;
 });
 </script>
@@ -194,24 +194,24 @@ const tableRecords = computed(() => {
 
           <!-- Cells -->
           <div
-              v-for="(d, idx) in calendarDays"
-              :key="idx"
-              class="cal-cell"
-              :class="{
+            v-for="(d, idx) in calendarDays"
+            :key="idx"
+            class="cal-cell"
+            :class="{
               empty:    !d,
               today:    isToday(d),
               selected: d === selectedDay,
               hasData:  d && (attendance[dayKey(d)]?.length > 0),
             }"
-              @click="selectDay(d)">
+            @click="selectDay(d)">
             <span v-if="d" class="cal-day-num">{{ d }}</span>
             <!-- status dots -->
             <div v-if="d" class="cal-dots">
               <span
-                  v-for="status in dayDots(d)"
-                  :key="status"
-                  class="cal-dot"
-                  :style="{ background: dotColor(status) }"/>
+                v-for="status in dayDots(d)"
+                :key="status"
+                class="cal-dot"
+                :style="{ background: dotColor(status) }"/>
             </div>
           </div>
         </div>
@@ -268,29 +268,29 @@ const tableRecords = computed(() => {
       <div class="att-table-wrap">
         <table class="att-table">
           <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Alumno</th>
-            <th>Check-in</th>
-            <th>Check-out</th>
-            <th>Estado</th>
-          </tr>
+            <tr>
+              <th>Fecha</th>
+              <th>Alumno</th>
+              <th>Check-in</th>
+              <th>Check-out</th>
+              <th>Estado</th>
+            </tr>
           </thead>
           <tbody>
-          <tr v-if="tableRecords.length === 0">
-            <td colspan="5" class="table-empty">Sin datos este mes</td>
-          </tr>
-          <tr v-for="rec in tableRecords" :key="rec.date + rec.childId">
-            <td class="td-date">{{ rec.date }}</td>
-            <td class="td-name">{{ rec.childName }}</td>
-            <td class="td-time">{{ rec.checkIn  || '—' }}</td>
-            <td class="td-time">{{ rec.checkOut || '—' }}</td>
-            <td>
+            <tr v-if="tableRecords.length === 0">
+              <td colspan="5" class="table-empty">Sin datos este mes</td>
+            </tr>
+            <tr v-for="rec in tableRecords" :key="rec.date + rec.childId">
+              <td class="td-date">{{ rec.date }}</td>
+              <td class="td-name">{{ rec.childName }}</td>
+              <td class="td-time">{{ rec.checkIn  || '—' }}</td>
+              <td class="td-time">{{ rec.checkOut || '—' }}</td>
+              <td>
                 <span class="status-badge" :class="rec.status.toLowerCase()">
                   {{ rec.status === 'PRESENT' ? 'Presente' : rec.status === 'LATE' ? 'Tarde' : 'Ausente' }}
                 </span>
-            </td>
-          </tr>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>

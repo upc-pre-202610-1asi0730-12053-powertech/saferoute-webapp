@@ -8,14 +8,12 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { fetchRoadRoute } from '../../../shared/infrastructure/ors.js';
 
-// Leaflet ships broken default icon paths under most bundlers — patch them manually
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow });
 
 const { t } = useI18n();
 
 // ── Route simulation data ──────────────────────────────────────────────────
-// Hardcoded waypoints for the demo; last point is the parent's home
 const ROUTE_PATH = [
   [-12.046374, -77.042793],
   [-12.052000, -77.035000],
@@ -28,7 +26,7 @@ const PROXIMITY_THRESHOLD_M = 500;
 const STEP_INTERVAL_MS = 4000; // ms between route steps
 
 // ── State ──────────────────────────────────────────────────────────────────
-const busStepIdx       = ref(0);              // index into ROUTE_PATH
+const busStepIdx       = ref(0);
 const busPos           = ref(ROUTE_PATH[0]);
 const busInfo          = ref({ driver: 'Carlos Ramirez', route: 'Ruta Norte — Comas / Los Olivos', vehiclePlate: 'ABC-123' });
 
@@ -40,7 +38,6 @@ const proximityDist    = ref(null);    // metres, null = not yet computed
 const arrivalConfirmed = ref(false);
 const arrivalTime      = ref(null);
 
-// Derive status from progress instead of tracking it as separate state
 const busStatus = computed(() => {
   if (arrivalConfirmed.value) return 'COMPLETED';
   if (busStepIdx.value > 0)   return 'EN_ROUTE';
@@ -53,7 +50,6 @@ const statusLabel = computed(() => ({
 
 const etaLabel = computed(() => {
   if (arrivalConfirmed.value) return arrivalTime.value;
-  // Rough ETA: remaining steps × interval
   const stepsLeft = ROUTE_PATH.length - 1 - busStepIdx.value;
   const mins = Math.round((stepsLeft * STEP_INTERVAL_MS) / 60000);
   if (mins <= 0) return 'Llegando…';
@@ -61,7 +57,6 @@ const etaLabel = computed(() => {
 });
 
 // ── Timeline (reactive) ────────────────────────────────────────────────────
-// Each row flips to done once the bus passes the matching step
 const timeline = computed(() => [
   { time: '06:00', event: 'Bus salió del punto de inicio',   done: busStepIdx.value >= 0, icon: 'pi pi-flag'       },
   { time: '06:15', event: 'Parada 1 - Av. Universitaria',    done: busStepIdx.value >= 1, icon: 'pi pi-map-marker' },
@@ -79,13 +74,13 @@ let roadPath    = ROUTE_PATH;   // will be replaced by ORS result
 let routeLine   = null;
 
 function initMap() {
-  if (map) return; // guard against double init
+  if (map) return;
   map = L.map('tracking-map').setView(ROUTE_PATH[0], 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
   }).addTo(map);
 
-  // Placeholder straight-line shown until ORS returns the real road geometry
+  // Draw placeholder straight-line while ORS loads
   routeLine = L.polyline(ROUTE_PATH, { color: '#FFB74D', weight: 4, dashArray: '8, 4', opacity: 0.5 }).addTo(map);
   map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
 
@@ -94,9 +89,8 @@ function initMap() {
     className: '', iconSize: [34, 34], iconAnchor: [17, 17],
   });
   busMarker = L.marker(ROUTE_PATH[0], { icon: busIcon, zIndexOffset: 1000 }).addTo(map)
-      .bindPopup(`🚌 ${busInfo.value.driver}`);
+    .bindPopup(`🚌 ${busInfo.value.driver}`);
 
-  // Static marker for the destination
   const homeIcon = L.divIcon({
     html: '<div style="background:#22C55E;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.2)"><i class=\'pi pi-home\' style=\'color:#fff;font-size:14px\'></i></div>',
     className: '', iconSize: [30, 30], iconAnchor: [15, 15],
@@ -104,7 +98,6 @@ function initMap() {
   L.marker(HOME_POSITION, { icon: homeIcon }).addTo(map).bindPopup('Tu domicilio');
 }
 
-// Swap the placeholder line for the actual ORS road route once it resolves
 async function loadRoadRoute() {
   orsLoading.value = true;
   try {
@@ -117,7 +110,6 @@ async function loadRoadRoute() {
       map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
     }
   } catch (e) {
-    // Non-fatal: just keep the straight-line fallback
     console.warn('ORS tracking failed, keeping straight line:', e);
   } finally {
     orsLoading.value = false;
@@ -125,8 +117,8 @@ async function loadRoadRoute() {
 }
 
 // ── Simulation ─────────────────────────────────────────────────────────────
-// Haversine distance between two [lat, lng] points, in metres
 function calcDistance(a, b) {
+  // Haversine in metres
   const R = 6371000;
   const dLat = (b[0] - a[0]) * Math.PI / 180;
   const dLng = (b[1] - a[1]) * Math.PI / 180;
@@ -136,11 +128,8 @@ function calcDistance(a, b) {
   return R * 2 * Math.atan2(Math.sqrt(c), Math.sqrt(1 - c));
 }
 
-// Called on every tick — moves the bus one step along the route
 function advanceBus() {
   const next = busStepIdx.value + 1;
-
-  // Reached the end of the route
   if (next >= ROUTE_PATH.length) {
     // US20 — Arrival confirmation
     if (!arrivalConfirmed.value) {
@@ -159,24 +148,23 @@ function advanceBus() {
   busMarker?.setLatLng(ROUTE_PATH[next]);
   map?.panTo(ROUTE_PATH[next], { animate: true, duration: 0.5 });
 
-  // US19 — Proximity detection: fire the alert once when within threshold
+  // US19 — Proximity detection
   const dist = calcDistance(ROUTE_PATH[next], HOME_POSITION);
   proximityDist.value = Math.round(dist);
   if (dist <= PROXIMITY_THRESHOLD_M && !proximityAlert.value && !arrivalConfirmed.value) {
     proximityAlert.value = true;
-    // Haptic feedback on mobile if available
+    // Vibrate if supported
     if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]);
   }
 }
 
 onMounted(async () => {
-  await nextTick(); // wait for #tracking-map to exist in the DOM
+  await nextTick();
   initMap();
   loadRoadRoute(); // async — upgrades polyline to real roads in background
   simTimer = setInterval(advanceBus, STEP_INTERVAL_MS);
 });
 
-// Tear down timer + map to avoid leaks on navigation
 onBeforeUnmount(() => {
   clearInterval(simTimer);
   if (map) { map.remove(); map = null; }
@@ -191,7 +179,6 @@ onBeforeUnmount(() => {
         <p class="page-sub">Seguimiento en tiempo real del transporte de tu hijo/a</p>
       </div>
       <div style="display:flex;align-items:center;gap:0.65rem">
-        <!-- Shown only while the ORS request is in flight -->
         <span v-if="orsLoading" class="ors-badge">
           <i class="pi pi-spin pi-spinner"/> Trazando ruta real…
         </span>
@@ -213,7 +200,6 @@ onBeforeUnmount(() => {
             <strong>¡Sal ahora!</strong>
           </p>
         </div>
-        <!-- Lets the user dismiss the banner manually -->
         <button class="prox-close" @click="proximityAlert = false">✕</button>
       </div>
     </transition>
@@ -232,7 +218,6 @@ onBeforeUnmount(() => {
     <div class="tracking-grid">
       <!-- Map -->
       <div class="map-col">
-        <!-- Leaflet mounts into this node -->
         <div id="tracking-map" class="leaflet-map"/>
 
         <!-- Bus info card -->
@@ -258,12 +243,10 @@ onBeforeUnmount(() => {
               <span class="info-value eta-val">{{ etaLabel }}</span>
             </div>
           </div>
-          <!-- Only render distance once we have a reading -->
           <div v-if="proximityDist !== null" class="bus-info-item">
             <i class="pi pi-map-marker info-icon"/>
             <div>
               <span class="info-label">Distancia</span>
-              <!-- Turns red inside the proximity threshold -->
               <span class="info-value" :style="{ color: proximityDist <= 500 ? '#ef4444' : 'var(--dark)' }">
                 {{ proximityDist >= 1000 ? `${(proximityDist/1000).toFixed(1)} km` : `${proximityDist} m` }}
               </span>
@@ -277,15 +260,14 @@ onBeforeUnmount(() => {
         <h3 class="timeline-title">Recorrido del día</h3>
         <div class="timeline">
           <div
-              v-for="(item, i) in timeline"
-              :key="i"
-              class="timeline-item"
-              :class="{ done: item.done }">
+            v-for="(item, i) in timeline"
+            :key="i"
+            class="timeline-item"
+            :class="{ done: item.done }">
             <div class="tl-line-col">
               <div class="tl-dot" :class="{ done: item.done }">
                 <i :class="item.icon"/>
               </div>
-              <!-- Skip the connector after the last item -->
               <div v-if="i < timeline.length - 1" class="tl-connector" :class="{ done: item.done }"/>
             </div>
             <div class="tl-content">
@@ -297,7 +279,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <!-- Alert box — three mutually exclusive states: arrived / nearby / en route -->
+        <!-- Alert box (changes based on state) -->
         <div v-if="arrivalConfirmed" class="alert-box success">
           <i class="pi pi-check-circle alert-icon"/>
           <div>
@@ -335,7 +317,6 @@ onBeforeUnmount(() => {
   display: flex; align-items: center; gap: 0.4rem;
   font-weight: 700; padding: 0.45rem 1rem; border-radius: 20px; font-size: 0.875rem;
 }
-/* One variant per bus status */
 .status-badge.en_route  { background: var(--amber); color: var(--dark); }
 .status-badge.scheduled { background: #e5e7eb; color: #374151; }
 .status-badge.completed { background: #dcfce7; color: #15803d; }
@@ -348,7 +329,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 4px 12px rgba(245,158,11,0.2);
 }
 .prox-icon { width: 42px; height: 42px; border-radius: 50%; background: #fef3c7; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #d97706; flex-shrink: 0; animation: proxPulse 1s ease-in-out infinite; }
-/* Pulsing bell to draw attention */
 @keyframes proxPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
 .prox-body  { flex: 1; }
 .prox-title { font-size: 0.95rem; font-weight: 800; color: #92400e; margin: 0 0 2px; }
@@ -366,7 +346,7 @@ onBeforeUnmount(() => {
 .arrival-title { font-size: 0.95rem; font-weight: 800; color: #14532d; margin: 0 0 3px; }
 .arrival-msg   { font-size: 0.82rem; color: #166534; margin: 0; }
 
-/* Slide + fade for both banners */
+/* Transition */
 .slide-down-enter-active, .slide-down-leave-active { transition: all 0.35s ease; }
 .slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-12px); }
 
@@ -404,7 +384,6 @@ onBeforeUnmount(() => {
   display: flex; align-items: center; justify-content: center;
   font-size: 0.75rem; color: var(--muted); flex-shrink: 0;
 }
-/* Green dot once the step is reached */
 .tl-dot.done { background: #dcfce7; border-color: #bbf7d0; color: #15803d; }
 .tl-connector { width: 2px; flex: 1; min-height: 20px; background: #e5e7eb; margin: 4px 0; }
 .tl-connector.done { background: #bbf7d0; }
@@ -421,7 +400,6 @@ onBeforeUnmount(() => {
   padding: 0.85rem 1rem; margin-top: auto;
   background: #fffbf2; border: 1px solid var(--amber);
 }
-/* Color overrides per alert state */
 .alert-box.warn    { background: #fff7ed; border-color: #f59e0b; }
 .alert-box.success { background: #f0fdf4; border-color: #22c55e; }
 .alert-icon  { font-size: 1.1rem; color: var(--amber); flex-shrink: 0; margin-top: 2px; }

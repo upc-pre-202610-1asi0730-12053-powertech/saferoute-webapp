@@ -24,10 +24,10 @@ export class Incident {
      * @param {?string} [params.organizationId=null]
      */
     constructor({
-                    id = null, tripId = null, description = '', reportedAt = '',
-                    routeId = null, routeName = '', type = '', severity = '',
-                    reportedBy = '', timestamp = '', status = '', organizationId = null,
-                }) {
+        id = null, tripId = null, description = '', reportedAt = '',
+        routeId = null, routeName = '', type = '', severity = '',
+        reportedBy = '', timestamp = '', status = '', organizationId = null,
+    }) {
         this.id = id;
         this.tripId = tripId;
         this.description = description;

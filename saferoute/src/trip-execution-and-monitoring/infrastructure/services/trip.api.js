@@ -6,7 +6,7 @@ export class TripApi extends BaseEndpoint {
     super('/trips');
   }
 
-
+  
   async startTrip(tripData) {
     return await this.create(tripData);
   }
