@@ -20,7 +20,7 @@ onMounted(() => {
       form.value.username = userItem.username;
       form.value.email = userItem.email;
       form.value.roles = userItem.roles;
-    } else router.push({name: 'iam-users'});
+    } else router.push({name: 'identity-and-access-management-users'});
   }
 });
 
@@ -32,7 +32,7 @@ const saveUser = () => {
     roles: form.value.roles,
   });
   if (isEdit.value) store.updateUser(userItem); else store.addUser(userItem);
-  router.push({name: 'iam-users'});
+  router.push({name: 'identity-and-access-management-users'});
 };
 </script>
 
@@ -53,7 +53,7 @@ const saveUser = () => {
         <pv-input-text id="roles" v-model="form.roles" class="w-full" required/>
       </div>
       <pv-button label="Save" icon="pi pi-save" type="submit"/>
-      <pv-button label="Cancel" class="ml-2" severity="secondary" @click="router.push({name: 'iam-users'})"/>
+      <pv-button label="Cancel" class="ml-2" severity="secondary" @click="router.push({name: 'identity-and-access-management-users'})"/>
     </form>
     <div v-if="store.errors.length" class="text-red-500 mt-3">
       {{ store.errors.map(e => e.message).join(', ') }}

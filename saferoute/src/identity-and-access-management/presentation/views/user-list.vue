@@ -32,7 +32,7 @@ const confirmDelete = (user) => {
 <template>
   <div class="p-4">
     <h1>Users</h1>
-    <pv-button label="New User" class="mb-3" icon="pi pi-plus" @click="router.push({name: 'iam-user-new'})"/>
+    <pv-button label="New User" class="mb-3" icon="pi pi-plus" @click="router.push({name: 'identity-and-access-management-user-new'})"/>
     <pv-data-table
         :loading="!loaded"
         :rows="5"
@@ -47,7 +47,7 @@ const confirmDelete = (user) => {
       <pv-column header="Roles" field="roles"/>
       <pv-column header="Actions">
         <template #body="slotProps">
-          <pv-button icon="pi pi-pencil" rounded text @click="router.push({name: 'iam-user-edit', params: {id: slotProps.data.id}})"/>
+          <pv-button icon="pi pi-pencil" rounded text @click="router.push({name: 'identity-and-access-management-user-edit', params: {id: slotProps.data.id}})"/>
           <pv-button icon="pi pi-trash" rounded severity="danger" text @click="confirmDelete(slotProps.data)"/>
         </template>
       </pv-column>
