@@ -368,7 +368,7 @@ watch(showDialog, (val) => {
 ───────────────────────────────────────────────────────── */
 async function loadRoutes() {
   loading.value = true;
-  const res = await api.getRoutes();
+  const res = await api.getRoutes(iamStore.currentUser?.organizationId);
   const all  = res.data || [];
   // DRIVER only sees their own routes; ADMIN/others see all.
   routes.value = isDriver.value

@@ -9,6 +9,7 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { TripApi }  from '../../infrastructure/trip-api.js';
 import { RouteApi } from '../../../fleet-and-route-planning/infrastructure/route-api.js';
 import { fetchRoadRoute } from '../../../shared/infrastructure/ors.js';
+import { useIamStore } from '../../../identity-and-access-management/application/iam.store.js';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow });
@@ -16,6 +17,7 @@ L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, 
 const { t }    = useI18n();
 const tripApi  = new TripApi();
 const routeApi = new RouteApi();
+const iamStore = useIamStore();
 
 const trips      = ref([]);
 const routes     = ref([]);
@@ -126,9 +128,10 @@ async function showTripOnMap(trip) {
 
 async function loadData() {
   loading.value = true;
+  const orgId = iamStore.currentUser?.organizationId;
   const [tripsRes, routesRes] = await Promise.all([
-    tripApi.getTrips(),
-    routeApi.getRoutes(),
+    tripApi.getTrips(orgId),
+    routeApi.getRoutes(orgId),
   ]);
   trips.value  = tripsRes.data  || [];
   routes.value = routesRes.data || [];

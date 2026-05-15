@@ -725,9 +725,10 @@ function onQrSuccess(decodedText) {
 // ── Load all data ──────────────────────────────────────────────────────────
 async function loadData() {
   loading.value = true;
+  const orgId = iamStore.currentUser?.organizationId;
   const [tripsRes, routesRes] = await Promise.all([
-    tripApi.getTrips(),
-    routeApi.getRoutes(),
+    tripApi.getTrips(orgId),
+    routeApi.getRoutes(orgId),
   ]);
   const allFetched = tripsRes.data || [];
   const isDriver   = iamStore.currentUser?.roleTier === 'DRIVER';
