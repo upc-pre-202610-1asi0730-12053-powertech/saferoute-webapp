@@ -58,7 +58,7 @@ const tierLabel = (tier) => t(`subscription.plan-tier.${tier?.toLowerCase()}`);
                   class="ml-2"/>
         </template>
         <template #subtitle>
-          <span class="price">S/ {{ plan.price }}</span>
+          <span class="price">${{ plan.price }}</span>
           <span class="period">/ {{ t('subscription-and-plan-management.month') }}</span>
         </template>
         <template #content>

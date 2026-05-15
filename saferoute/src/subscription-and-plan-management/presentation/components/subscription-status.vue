@@ -57,7 +57,7 @@ const formatDate = (iso) => {
         </div>
         <div class="col-12 md:col-6">
           <strong>{{ t('subscription-and-plan-management.status-card.price') }}:</strong>
-          S/ {{ plan?.price ?? '—' }}
+          ${{ plan?.price ?? "—" }}
         </div>
         <div class="col-12 md:col-6">
           <strong>{{ t('subscription-and-plan-management.status-card.start-date') }}:</strong>

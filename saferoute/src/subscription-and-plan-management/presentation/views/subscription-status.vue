@@ -152,7 +152,7 @@ const onCancel = () => {
         </div>
 
         <div class="price-row">
-          <span class="price-big">S/ {{ plan?.price ?? '—' }}</span>
+          <span class="price-big">${{ plan?.price ?? "—" }}</span>
           <span class="price-per">/ mes</span>
         </div>
 
