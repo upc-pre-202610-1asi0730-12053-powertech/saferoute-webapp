@@ -19,10 +19,10 @@ function getExtra() { return JSON.parse(localStorage.getItem(extraKey()) || '[]'
 function getState() { return JSON.parse(localStorage.getItem(stateKey()) || '{}'); }
 
 /** Returns seed trips + extras filtered by org, with any persisted patches applied */
-function mockTrips() {
-    const orgId = getCurrentOrgId();
+function mockTrips(orgId) {
+    const id    = orgId || getCurrentOrgId();
     const state = getState();
-    const seed  = orgId ? seedData.trips.filter(t => t.organizationId === orgId) : [];
+    const seed  = id ? seedData.trips.filter(t => t.organizationId === id) : [];
     const base  = [...seed, ...getExtra()];
     return base.map(t => state[t.id] ? { ...t, ...state[t.id] } : t);
 }
@@ -52,9 +52,11 @@ export class TripApi extends BaseApi {
         this.#tripsEndpoint = new BaseEndpoint(this, endpointPath);
     }
 
-    getTrips() {
-        if (useFakeAuth) return Promise.resolve({ status: 200, data: mockTrips() });
-        return this.#tripsEndpoint.getAll();
+    getTrips(organizationId) {
+        if (useFakeAuth) return Promise.resolve({ status: 200, data: mockTrips(organizationId) });
+        return organizationId
+            ? this.http.get(`${endpointPath}?organizationId=${organizationId}`)
+            : this.#tripsEndpoint.getAll();
     }
 
     getTripById(id) {

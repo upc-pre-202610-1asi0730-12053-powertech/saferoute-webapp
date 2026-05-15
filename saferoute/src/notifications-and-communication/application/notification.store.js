@@ -88,8 +88,9 @@ export const useNotificationStore = defineStore('notification', () => {
     // Existing views use `messages` and `fetchMessages` — map to notifications
     const messages = notifications;
 
-    function fetchMessages() {
-        api.getMessages().then(response => {
+    function fetchMessages(organizationId) {
+        loaded.value = false;
+        api.getMessages(organizationId).then(response => {
             notifications.value = NotificationAssembler.toEntitiesFromResponse(response);
             loaded.value = true;
         }).catch(error => errors.value.push(error));

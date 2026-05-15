@@ -109,8 +109,9 @@ export const useFleetStore = defineStore('fleet', () => {
 
     // ─── Backward-compatible methods (used by existing views) ────────────────
 
-    function fetchRoutes() {
-        api.getRoutes().then(response => {
+    function fetchRoutes(organizationId) {
+        loaded.value = false;
+        api.getRoutes(organizationId).then(response => {
             routes.value = RouteAssembler.toEntitiesFromResponse(response);
             loaded.value = true;
         }).catch(error => errors.value.push(error));

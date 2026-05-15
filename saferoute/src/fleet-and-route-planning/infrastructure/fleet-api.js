@@ -18,10 +18,10 @@ function mockRouteKey() { return `saferoute.mock.routes.${getCurrentOrgId() || '
 function mockVehicleKey() { return `saferoute.mock.vehicles.${getCurrentOrgId() || 'default'}`; }
 function mockAssignmentKey() { return `saferoute.mock.assignments.${getCurrentOrgId() || 'default'}`; }
 
-function mockRoutes() {
-    const orgId = getCurrentOrgId();
+function mockRoutes(orgId) {
+    const id    = orgId || getCurrentOrgId();
     const extra = JSON.parse(localStorage.getItem(mockRouteKey()) || '[]');
-    const seed  = orgId ? seedData.routes.filter(r => r.organizationId === orgId) : [];
+    const seed  = id ? seedData.routes.filter(r => r.organizationId === id) : [];
     return [...seed, ...extra];
 }
 
@@ -160,9 +160,11 @@ export class FleetApi extends BaseApi {
 
     // ─── Backward-compatible methods (used by existing views) ────────────────
 
-    getRoutes() {
-        if (useFakeAuth) return Promise.resolve({ status: 200, data: mockRoutes() });
-        return this.#routesEndpoint.getAll();
+    getRoutes(organizationId) {
+        if (useFakeAuth) return Promise.resolve({ status: 200, data: mockRoutes(organizationId) });
+        return organizationId
+            ? this.http.get(`${routeEndpointPath}?organizationId=${organizationId}`)
+            : this.#routesEndpoint.getAll();
     }
 
     getRouteById(id) {
