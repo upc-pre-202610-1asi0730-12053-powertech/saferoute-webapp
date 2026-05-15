@@ -13,12 +13,12 @@ export class User {
      * @param {string} [params.roleTier=''] - Role tier (e.g. 'ADMIN', 'DRIVER', 'PARENT').
      * @param {?string} [params.organizationId=null] - FK of the organization the user belongs to.
      */
-    constructor({ id = null, firstName = '', lastName = '', email = '', roleTier = '', organizationId = null }) {
+    constructor({ id = null, firstName = '', lastName = '', email = '', roleTier = '', role = '', organizationId = null }) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
-        this.roleTier = roleTier;
+        this.roleTier = roleTier || role;
         this.organizationId = organizationId;
     }
 
