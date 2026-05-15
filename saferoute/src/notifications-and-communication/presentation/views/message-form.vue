@@ -20,7 +20,7 @@ onMounted(() => {
       form.value.title = messageItem.title;
       form.value.content = messageItem.content;
       form.value.timestamp = messageItem.timestamp;
-    } else router.push({name: 'notification-alerts'});
+    } else router.push({name: 'notifications-and-communication-alerts'});
   }
 });
 
@@ -32,7 +32,7 @@ const saveMessage = () => {
     timestamp: form.value.timestamp || new Date().toISOString(),
   });
   if (isEdit.value) store.updateMessage(messageItem); else store.addMessage(messageItem);
-  router.push({name: 'notification-alerts'});
+  router.push({name: 'notifications-and-communication-alerts'});
 };
 </script>
 
@@ -49,7 +49,7 @@ const saveMessage = () => {
         <pv-textarea id="content" v-model="form.content" class="w-full" rows="4" required/>
       </div>
       <pv-button label="Save" icon="pi pi-save" type="submit"/>
-      <pv-button label="Cancel" class="ml-2" severity="secondary" @click="router.push({name: 'notification-alerts'})"/>
+      <pv-button label="Cancel" class="ml-2" severity="secondary" @click="router.push({name: 'notifications-and-communication-alerts'})"/>
     </form>
     <div v-if="store.errors.length" class="text-red-500 mt-3">
       {{ store.errors.map(e => e.message).join(', ') }}

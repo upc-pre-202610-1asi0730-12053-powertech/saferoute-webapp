@@ -32,7 +32,7 @@ const confirmDelete = (message) => {
 <template>
   <div class="p-4">
     <h1>Alerts</h1>
-    <pv-button label="New Alert" class="mb-3" icon="pi pi-plus" @click="router.push({name: 'notification-alert-new'})"/>
+    <pv-button label="New Alert" class="mb-3" icon="pi pi-plus" @click="router.push({name: 'notifications-and-communication-alert-new'})"/>
     <pv-data-table
         :loading="!loaded"
         :rows="5"
@@ -47,7 +47,7 @@ const confirmDelete = (message) => {
       <pv-column header="Timestamp" field="timestamp" sortable/>
       <pv-column header="Actions">
         <template #body="slotProps">
-          <pv-button icon="pi pi-pencil" rounded text @click="router.push({name: 'notification-alert-edit', params: {id: slotProps.data.id}})"/>
+          <pv-button icon="pi pi-pencil" rounded text @click="router.push({name: 'notifications-and-communication-alert-edit', params: {id: slotProps.data.id}})"/>
           <pv-button icon="pi pi-trash" rounded severity="danger" text @click="confirmDelete(slotProps.data)"/>
         </template>
       </pv-column>
