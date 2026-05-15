@@ -20,7 +20,7 @@ onMounted(() => {
       form.value.name = planItem.name;
       form.value.price = planItem.price;
       form.value.benefits = planItem.benefits;
-    } else router.push({name: 'subscription-plans'});
+    } else router.push({name: 'subscription-and-plan-management-plans'});
   }
 });
 
@@ -32,7 +32,7 @@ const savePlan = () => {
     benefits: form.value.benefits,
   });
   if (isEdit.value) store.updatePlan(planItem); else store.addPlan(planItem);
-  router.push({name: 'subscription-plans'});
+  router.push({name: 'subscription-and-plan-management-plans'});
 };
 </script>
 
@@ -53,7 +53,7 @@ const savePlan = () => {
         <pv-textarea id="benefits" v-model="form.benefits" class="w-full" rows="3" required/>
       </div>
       <pv-button label="Save" icon="pi pi-save" type="submit"/>
-      <pv-button label="Cancel" class="ml-2" severity="secondary" @click="router.push({name: 'subscription-plans'})"/>
+      <pv-button label="Cancel" class="ml-2" severity="secondary" @click="router.push({name: 'subscription-and-plan-management-plans'})"/>
     </form>
     <div v-if="store.errors.length" class="text-red-500 mt-3">
       {{ store.errors.map(e => e.message).join(', ') }}

@@ -1,9 +1,7 @@
 import { BaseAssembler } from '../../../shared/application/transform/base.assembler';
 import { Plan } from '../../domain/model/plan.entity';
 
-/**
- * Ensamblador para convertir entre DTOs y la entidad Plan.
- */
+
 export class PlanAssembler extends BaseAssembler {
   toEntity(dto) {
     return new Plan(dto.id, dto.name, dto.price, dto.benefits);

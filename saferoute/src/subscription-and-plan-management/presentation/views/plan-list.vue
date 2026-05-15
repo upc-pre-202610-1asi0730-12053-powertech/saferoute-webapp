@@ -32,7 +32,7 @@ const confirmDelete = (plan) => {
 <template>
   <div class="p-4">
     <h1>Plans</h1>
-    <pv-button label="New Plan" class="mb-3" icon="pi pi-plus" @click="router.push({name: 'subscription-plan-new'})"/>
+    <pv-button label="New Plan" class="mb-3" icon="pi pi-plus" @click="router.push({name: 'subscription-and-plan-management-plan-new'})"/>
     <pv-data-table
         :loading="!loaded"
         :rows="5"
@@ -47,7 +47,7 @@ const confirmDelete = (plan) => {
       <pv-column header="Benefits" field="benefits"/>
       <pv-column header="Actions">
         <template #body="slotProps">
-          <pv-button icon="pi pi-pencil" rounded text @click="router.push({name: 'subscription-plan-edit', params: {id: slotProps.data.id}})"/>
+          <pv-button icon="pi pi-pencil" rounded text @click="router.push({name: 'subscription-and-plan-management-plan-edit', params: {id: slotProps.data.id}})"/>
           <pv-button icon="pi pi-trash" rounded severity="danger" text @click="confirmDelete(slotProps.data)"/>
         </template>
       </pv-column>
