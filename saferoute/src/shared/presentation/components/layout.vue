@@ -10,6 +10,7 @@ const router   = useRouter();
 const route    = useRoute();
 const iamStore = useIamStore();
 
+<<<<<<< HEAD
 const hideNav    = computed(() => route.meta?.hideNav === true);
 const menuOpen   = ref(false);
 
@@ -24,6 +25,20 @@ const adminItems = [
   { label: 'option.subscription-and-plan-management', to: '/subscription-and-plan-management/status',      icon: 'pi pi-credit-card' },
   { label: 'option.alerts',       to: '/notifications-and-communication/alerts',      icon: 'pi pi-bell'        },
   { label: 'option.profile',      to: '/identity-and-access-management/profile',              icon: 'pi pi-user'        },
+=======
+const drawer = ref(false);
+const toggleDrawer = () => {
+ drawer.value = !drawer.value;
+}
+const items = [
+ {label: 'option.home', to: '/home'},
+ {label: 'option.about', to: '/about'},
+ {label: 'option.profiles', to: '/stakeholder/profiles'},
+ {label: 'option.routes', to: '/fleet-and-route-planning/routes'},
+ {label: 'option.trips', to: '/trip/trips'},
+ {label: 'option.plans', to: '/subscription/plans'},
+ {label: 'option.alerts', to: '/notification/alerts'}
+>>>>>>> 45cf17206d711b762c980bc981c914235bf89cb8
 ];
 
 const driverItems = [

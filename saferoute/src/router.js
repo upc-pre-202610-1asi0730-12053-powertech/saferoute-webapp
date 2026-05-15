@@ -1,26 +1,26 @@
-import {createRouter, createWebHistory} from "vue-router";
+import { createRouter, createWebHistory } from "vue-router";
 import Home from "./shared/presentation/views/home.vue";
-import {iamRoutes} from "./iam/presentation/iam-routes.js";
-import {stakeholderRoutes} from "./stakeholder/presentation/stakeholder-routes.js";
-import {routeRoutes} from "./route/presentation/route-routes.js";
-import {tripRoutes} from "./trip/presentation/trip-routes.js";
-import {subscriptionRoutes} from "./subscription/presentation/subscription-routes.js";
-import {notificationRoutes} from "./notification/presentation/notification-routes.js";
+import { iamRoutes } from "./identity-and-access-management/presentation/iam-routes.js";
+import { stakeholderRoutes } from "./stakeholder-and-asset-management/presentation/stakeholder-routes.js";
+import { routeRoutes } from "./fleet-and-route-planning/presentation/route-routes.js";
+import { tripRoutes } from "./trip-execution-and-monitoring/presentation/trip-routes.js";
+import { subscriptionRoutes } from "./subscription-and-plan-management/presentation/subscription-routes.js";
+import { notificationRoutes } from "./notifications-and-communication/presentation/notification-routes.js";
 
-const about = () => import('./shared/presentation/views/about.vue');
+const about        = () => import('./shared/presentation/views/about.vue');
 const pageNotFound = () => import('./shared/presentation/views/page-not-found.vue');
 
 const routes = [
-   { path: '/home',            name: 'home',       component: Home,        meta: { title: 'Home' } },
+   { path: '/home',            name: 'home',       component: Home,        meta: { title: 'Home', requiresAuth: true } },
    { path: '/about',           name: 'about',      component: about,       meta: { title: 'About' } },
-   { path: '/iam',             children: iamRoutes },
-   { path: '/stakeholder',     children: stakeholderRoutes },
-   { path: '/route',           children: routeRoutes },
-   { path: '/trip',            children: tripRoutes },
-   { path: '/subscription',    children: subscriptionRoutes },
-   { path: '/notification',    children: notificationRoutes },
+   { path: '/identity-and-access-management',             children: iamRoutes },
+   { path: '/stakeholder-and-asset-management',     children: stakeholderRoutes,                meta: { requiresAuth: true } },
+   { path: '/fleet-and-route-planning',           children: routeRoutes,                      meta: { requiresAuth: true } },
+   { path: '/trip-execution-and-monitoring',            children: tripRoutes,                       meta: { requiresAuth: true } },
+   { path: '/subscription-and-plan-management',    children: subscriptionRoutes },
+   { path: '/notifications-and-communication',    children: notificationRoutes,               meta: { requiresAuth: true } },
    { path: '/',                redirect: '/home' },
-   { path: '/:pathMatch(.*)*', name: 'not-found', component: pageNotFound, meta: { title: 'Page Not Found' } }
+   { path: '/:pathMatch(.*)*', name: 'not-found',  component: pageNotFound, meta: { title: 'Page Not Found' } }
 ];
 
 const router = createRouter({
@@ -29,8 +29,23 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
-   let baseTitle = 'SafeRoute';
+   const baseTitle = 'SafeRoute';
    document.title = `${baseTitle} | ${to.meta['title'] || 'Default'}`;
+
+
+   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+   const token = localStorage.getItem('saferoute.token');
+
+   if (requiresAuth && !token) {
+      return next({ name: 'iam-sign-in', query: { redirect: to.fullPath } });
+   }
+
+   // If already authenticated and trying to visit sign-in/sign-up, send home.
+   // Landing handles its own redirect in onMounted, so we leave it alone.
+   if (token && (to.name === 'iam-sign-in' || to.name === 'iam-sign-up')) {
+      return next({ name: 'home' });
+   }
+
    return next();
 });
 

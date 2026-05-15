@@ -3,5 +3,5 @@ import Layout from "./shared/presentation/components/layout.vue";
 </script>
 
 <template>
- <layout/>
+  <layout/>
 </template>
