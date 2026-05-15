@@ -44,11 +44,11 @@ const orsLoading   = ref(false);
 const waypoints  = computed(() => routeData.value?.waypoints || []);
 
 const stops = computed(() =>
-    waypoints.value.map((wp, i) => ({
-      ...wp,
-      done:    i < currentWpIdx.value,
-      current: i === currentWpIdx.value,
-    }))
+  waypoints.value.map((wp, i) => ({
+    ...wp,
+    done:    i < currentWpIdx.value,
+    current: i === currentWpIdx.value,
+  }))
 );
 
 const progress = computed(() => {
@@ -183,17 +183,17 @@ function buildMapLayer() {
   const wps = waypoints.value;
   if (!wps.length) { map.setView(LIMA, 12); return; }
 
-
+  
   const pathCoords = roadPath.value.length > 1
-      ? roadPath.value
-      : wps.map(w => [w.lat, w.lng]);
+    ? roadPath.value
+    : wps.map(w => [w.lat, w.lng]);
 
   routeLine = L.polyline(pathCoords, { color: '#6366f1', weight: 5, opacity: 0.85 }).addTo(map);
   map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
 
   wps.forEach((wp, i) => {
     const color = i < currentWpIdx.value ? '#22c55e'
-        : i === currentWpIdx.value ? '#6366f1' : '#94a3b8';
+                : i === currentWpIdx.value ? '#6366f1' : '#94a3b8';
     const c = L.circleMarker([wp.lat, wp.lng], {
       radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 1,
     }).addTo(map).bindTooltip(`${i + 1}. ${wp.name}`, { direction: 'top' });
@@ -226,7 +226,7 @@ async function loadRoadRoute() {
 function refreshStopColors() {
   stopCircles.forEach((c, i) => {
     const color = i < currentWpIdx.value ? '#22c55e'
-        : i === currentWpIdx.value ? '#6366f1' : '#94a3b8';
+                : i === currentWpIdx.value ? '#6366f1' : '#94a3b8';
     c.setStyle({ fillColor: color });
   });
 }
@@ -235,8 +235,8 @@ function placeBusAt(wp) {
   if (!map || !wp) return;
   if (!busMarker) {
     busMarker = L.marker([wp.lat, wp.lng], { icon: busIcon, zIndexOffset: 1000 })
-        .addTo(map)
-        .bindPopup(`🚌 ${tripData.value?.driverName || 'Conductor'}`);
+      .addTo(map)
+      .bindPopup(`🚌 ${tripData.value?.driverName || 'Conductor'}`);
   } else {
     busMarker.setLatLng([wp.lat, wp.lng]);
   }
@@ -361,7 +361,7 @@ function resetSim() {
 
   refreshStopColors();
 
-
+  
   const roadIdx = wpIndices.value[0] ?? 0;
   const pos = roadPath.value.length > 1 ? roadPath.value[roadIdx] : null;
   if (pos) {
@@ -410,9 +410,9 @@ function finishTrip() {
   const isNotFinished = currentWpIdx.value < lastIdx;
 
   confirm.require({
-    message: isNotFinished
-        ? '⚠️ Hay alumnos a bordo (no has completado todas las paradas). ¿Forzar finalización?'
-        : '¿Confirmas la finalización del viaje? Se registrará como completado.',
+    message: isNotFinished 
+      ? '⚠️ Hay alumnos a bordo (no has completado todas las paradas). ¿Forzar finalización?' 
+      : '¿Confirmas la finalización del viaje? Se registrará como completado.',
     header:      'Finalizar Viaje',
     icon:        'pi pi-flag-fill',
     acceptLabel: 'Sí, finalizar',
@@ -457,8 +457,8 @@ async function selectTrip(trip) {
   const wps = routeData.value?.waypoints || [];
   if (trip.status === 'EN_ROUTE' && wps.length) {
     const idx = trip.currentStop
-        ? wps.findIndex(w => w.name === trip.currentStop)
-        : 0;
+      ? wps.findIndex(w => w.name === trip.currentStop)
+      : 0;
     currentWpIdx.value = idx >= 0 ? idx : 0;
   } else if (trip.status === 'COMPLETED') {
     currentWpIdx.value = Math.max(0, wps.length - 1);
@@ -466,7 +466,7 @@ async function selectTrip(trip) {
     currentWpIdx.value = -1;
   }
 
-
+  
   buildMapLayer();
   // Always show the bus at the first / current stop (even for SCHEDULED trips)
   if (wps.length) {
@@ -631,8 +631,8 @@ const boardingStudents = computed(() => {
   const extra = JSON.parse(localStorage.getItem(`saferoute.mock.children.${iamStore.currentUser?.organizationId || 'default'}`) || 'null');
   const allChildren = extra || seedData.children;
   return allChildren
-      .filter(c => tripData.value.studentIds.includes(c.id))
-      .map(c => ({ ...c, boardingMark: boardingState.value[c.id] ?? null }));
+    .filter(c => tripData.value.studentIds.includes(c.id))
+    .map(c => ({ ...c, boardingMark: boardingState.value[c.id] ?? null }));
 });
 
 function markBoarding(childId, status) {
@@ -668,13 +668,13 @@ async function openQrScanner() {
     html5QrCode = new Html5Qrcode('qr-reader');
     qrScanning.value = true;
     await html5QrCode.start(
-        { facingMode: 'environment' },
-        {
-          fps: 30,
-          qrbox: { width: 220, height: 220 },
-        },
-        (decodedText) => onQrSuccess(decodedText),
-        (_err) => { /* ignore per-frame decode errors */ }
+      { facingMode: 'environment' },
+      {
+        fps: 30,
+        qrbox: { width: 220, height: 220 },
+      },
+      (decodedText) => onQrSuccess(decodedText),
+      (_err) => { /* ignore per-frame decode errors */ }
     );
   } catch (e) {
     qrScanning.value = false;
@@ -733,8 +733,8 @@ async function loadData() {
   const myId       = iamStore.currentUser?.id;
   // DRIVER only sees their own trips; ADMIN/others see all.
   allTrips.value = isDriver
-      ? allFetched.filter(t => t.driverId === myId)
-      : allFetched;
+    ? allFetched.filter(t => t.driverId === myId)
+    : allFetched;
   routeCache.value = {};
   (routesRes.data || []).forEach(r => { routeCache.value[r.id] = r; });
   loading.value = false;
@@ -757,10 +757,10 @@ onMounted(async () => {
   // Auto-select: prefer EN_ROUTE → SCHEDULED → first
   const driverId = iamStore.currentUser?.id;
   const auto =
-      allTrips.value.find(t => t.driverId === driverId && t.status === 'EN_ROUTE') ||
-      allTrips.value.find(t => t.driverId === driverId && t.status === 'SCHEDULED') ||
-      allTrips.value.find(t => t.driverId === driverId) ||
-      allTrips.value[0] || null;
+    allTrips.value.find(t => t.driverId === driverId && t.status === 'EN_ROUTE') ||
+    allTrips.value.find(t => t.driverId === driverId && t.status === 'SCHEDULED') ||
+    allTrips.value.find(t => t.driverId === driverId) ||
+    allTrips.value[0] || null;
 
   if (auto) await selectTrip(auto);
 
@@ -798,12 +798,12 @@ onBeforeUnmount(async () => {
         </span>
         <template v-if="tripData && isEnRoute && waypoints.length">
           <pv-button
-              icon="pi pi-refresh"
-              label="Reiniciar"
-              size="small"
-              severity="secondary"
-              :disabled="orsLoading || isOffline"
-              @click="resetSim"/>
+            icon="pi pi-refresh"
+            label="Reiniciar"
+            size="small"
+            severity="secondary"
+            :disabled="orsLoading || isOffline"
+            @click="resetSim"/>
           <pv-button v-if="!simRunning" label="Simular" icon="pi pi-play" size="small" :disabled="orsLoading || isOffline" @click="startSim"/>
           <pv-button v-else label="Pausar" icon="pi pi-pause" size="small" severity="secondary" @click="pauseSim"/>
         </template>
@@ -859,10 +859,10 @@ onBeforeUnmount(async () => {
           <div v-if="allTrips.length === 0" class="empty-panel">Sin viajes</div>
 
           <div
-              v-for="trip in allTrips" :key="trip.id"
-              class="trip-card"
-              :class="{ active: tripData?.id === trip.id }"
-              @click="selectTrip(trip)">
+            v-for="trip in allTrips" :key="trip.id"
+            class="trip-card"
+            :class="{ active: tripData?.id === trip.id }"
+            @click="selectTrip(trip)">
 
             <div class="trip-card-top">
               <span class="trip-card-name">{{ trip.routeName || `Viaje #${trip.id}` }}</span>
@@ -930,10 +930,10 @@ onBeforeUnmount(async () => {
             <template v-else>
               <div class="stop-list">
                 <div
-                    v-for="(stop, i) in stops" :key="i"
-                    class="stop-item"
-                    :class="{ done: stop.done, current: stop.current, clickable: isEnRoute && i > currentWpIdx }"
-                    @click="goToStop(i)">
+                  v-for="(stop, i) in stops" :key="i"
+                  class="stop-item"
+                  :class="{ done: stop.done, current: stop.current, clickable: isEnRoute && i > currentWpIdx }"
+                  @click="goToStop(i)">
 
                   <div class="stop-num"
                        :style="{
@@ -970,15 +970,15 @@ onBeforeUnmount(async () => {
                     <span class="boarding-name">{{ child.name }}</span>
                     <div class="boarding-btns">
                       <button
-                          class="b-btn aboard"
-                          :class="{ active: child.boardingMark === 'ABORDADO' }"
-                          @click="markBoarding(child.id, 'ABORDADO')">
+                        class="b-btn aboard"
+                        :class="{ active: child.boardingMark === 'ABORDADO' }"
+                        @click="markBoarding(child.id, 'ABORDADO')">
                         <i class="pi pi-check"/>
                       </button>
                       <button
-                          class="b-btn absent"
-                          :class="{ active: child.boardingMark === 'AUSENTE' }"
-                          @click="markBoarding(child.id, 'AUSENTE')">
+                        class="b-btn absent"
+                        :class="{ active: child.boardingMark === 'AUSENTE' }"
+                        @click="markBoarding(child.id, 'AUSENTE')">
                         <i class="pi pi-times"/>
                       </button>
                     </div>
@@ -989,21 +989,21 @@ onBeforeUnmount(async () => {
               <div class="action-row">
                 <!-- US16 — Navigation -->
                 <pv-button
-                    v-if="isEnRoute"
-                    label="Navegar"
-                    icon="pi pi-map"
-                    severity="secondary"
-                    outlined
-                    class="w-full"
-                    @click="openNavigation"/>
+                  v-if="isEnRoute"
+                  label="Navegar"
+                  icon="pi pi-map"
+                  severity="secondary"
+                  outlined
+                  class="w-full"
+                  @click="openNavigation"/>
 
                 <pv-button
-                    v-if="isEnRoute"
-                    label="Finalizar Viaje"
-                    icon="pi pi-flag-fill"
-                    severity="danger"
-                    class="w-full"
-                    @click="finishTrip"/>
+                  v-if="isEnRoute"
+                  label="Finalizar Viaje"
+                  icon="pi pi-flag-fill"
+                  severity="danger"
+                  class="w-full"
+                  @click="finishTrip"/>
 
                 <div v-else-if="isCompleted" class="completed-banner">
                   <i class="pi pi-check-circle"/>
@@ -1018,15 +1018,15 @@ onBeforeUnmount(async () => {
                 </div>
                 <div v-else class="sos-hold-wrap">
                   <button
-                      class="sos-hold-btn w-full"
-                      @mousedown="sosStart" @mouseup="sosEnd" @mouseleave="sosEnd"
-                      @touchstart.prevent="sosStart" @touchend.prevent="sosEnd">
+                    class="sos-hold-btn w-full"
+                    @mousedown="sosStart" @mouseup="sosEnd" @mouseleave="sosEnd"
+                    @touchstart.prevent="sosStart" @touchend.prevent="sosEnd">
                     <svg class="sos-ring" viewBox="0 0 36 36">
                       <circle cx="18" cy="18" r="15.9" fill="none" stroke="#fee2e2" stroke-width="2.5"/>
                       <circle cx="18" cy="18" r="15.9" fill="none" stroke="#ef4444" stroke-width="2.5"
-                              stroke-dasharray="100" :stroke-dashoffset="100 - sosProgress"
-                              stroke-linecap="round" transform="rotate(-90 18 18)"
-                              style="transition:stroke-dashoffset 0.04s linear"/>
+                        stroke-dasharray="100" :stroke-dashoffset="100 - sosProgress"
+                        stroke-linecap="round" transform="rotate(-90 18 18)"
+                        style="transition:stroke-dashoffset 0.04s linear"/>
                     </svg>
                     <i class="pi pi-exclamation-triangle sos-icon"/>
                     <span>{{ sosHolding ? 'Suelta para cancelar…' : 'SOS — Mantén 3 seg' }}</span>
@@ -1064,12 +1064,12 @@ onBeforeUnmount(async () => {
 
     <!-- US11.S2/S3 — QR Scanner Dialog -->
     <pv-dialog
-        v-model:visible="qrDialog"
-        header="📷 Escanear QR de Alumno"
-        modal
-        style="width:360px"
-        :closable="true"
-        @hide="closeQrScanner">
+      v-model:visible="qrDialog"
+      header="📷 Escanear QR de Alumno"
+      modal
+      style="width:360px"
+      :closable="true"
+      @hide="closeQrScanner">
       <p class="qr-hint">Apunta la cámara al código QR del carnet del alumno.</p>
       <div id="qr-reader" class="qr-reader-box"/>
       <p v-if="qrScanning" class="qr-scanning-label">
@@ -1112,9 +1112,9 @@ onBeforeUnmount(async () => {
         <div class="em-field">
           <label>Tipo</label>
           <pv-select
-              v-model="emergencyForm.type"
-              :options="[{ value: 'RETRASO', label: 'Retraso' }, { value: 'AVERIA', label: 'Avería' }, { value: 'ACCIDENTE', label: 'Accidente' }, { value: 'COMPORTAMIENTO', label: 'Comportamiento' }, { value: 'OTRO', label: 'Otro' }]"
-              option-label="label" option-value="value" class="w-full"/>
+            v-model="emergencyForm.type"
+            :options="[{ value: 'RETRASO', label: 'Retraso' }, { value: 'AVERIA', label: 'Avería' }, { value: 'ACCIDENTE', label: 'Accidente' }, { value: 'COMPORTAMIENTO', label: 'Comportamiento' }, { value: 'OTRO', label: 'Otro' }]"
+            option-label="label" option-value="value" class="w-full"/>
         </div>
         <div class="em-field">
           <label>Descripción *</label>
@@ -1125,17 +1125,17 @@ onBeforeUnmount(async () => {
       <template #footer>
         <pv-button label="Volver" text @click="emergencyMode ? (emergencyMode = null) : (emergencyDialog = false)"/>
         <pv-button
-            v-if="emergencyMode === 'urgent'"
-            label="Llamar ahora"
-            icon="pi pi-phone"
-            severity="danger"
-            @click="callEmergency"/>
+          v-if="emergencyMode === 'urgent'"
+          label="Llamar ahora"
+          icon="pi pi-phone"
+          severity="danger"
+          @click="callEmergency"/>
         <pv-button
-            v-else-if="emergencyMode === 'mild'"
-            label="Enviar reporte"
-            icon="pi pi-send"
-            :disabled="!emergencyForm.description"
-            @click="submitEmergencyReport"/>
+          v-else-if="emergencyMode === 'mild'"
+          label="Enviar reporte"
+          icon="pi pi-send"
+          :disabled="!emergencyForm.description"
+          @click="submitEmergencyReport"/>
       </template>
     </pv-dialog>
   </div>

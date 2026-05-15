@@ -30,16 +30,16 @@ const userId   = computed(() => iamStore.currentUser?.id);
 
 // ── Reference data (mock — from db.json) ──────────────────────────────────────
 const driverOptions  = seedData.profiles
-    .filter(p => p.role === 'driver' && p.status === 'ACTIVE')
-    .map(p => ({ label: `${p.firstName} ${p.lastName}`, value: p.userId || String(p.id), name: `${p.firstName} ${p.lastName}` }));
+  .filter(p => p.role === 'driver' && p.status === 'ACTIVE')
+  .map(p => ({ label: `${p.firstName} ${p.lastName}`, value: p.userId || String(p.id), name: `${p.firstName} ${p.lastName}` }));
 
 const vehicleOptions = seedData.vehicles
-    .filter(v => v.status === 'ACTIVE')
-    .map(v => ({ label: `${v.plate} — ${v.model}`, value: v.id, plate: v.plate }));
+  .filter(v => v.status === 'ACTIVE')
+  .map(v => ({ label: `${v.plate} — ${v.model}`, value: v.id, plate: v.plate }));
 
 const studentOptions = seedData.children
-    .filter(c => c.status !== false)
-    .map(c => ({ label: `${c.name} (${c.grade})`, value: c.id, name: c.name, grade: c.grade }));
+  .filter(c => c.status !== false)
+  .map(c => ({ label: `${c.name} (${c.grade})`, value: c.id, name: c.name, grade: c.grade }));
 
 // ── Route state ────────────────────────────────────────────────────────────────
 const routes        = ref([]);
@@ -77,25 +77,25 @@ const form = ref(emptyForm());
 
 /** Sync form.studentIds = union of all waypoint studentIds */
 watch(
-    () => form.value.waypoints.map(w => w.studentIds),
-    () => {
-      const all = new Set();
-      form.value.waypoints.forEach(w => (w.studentIds || []).forEach(id => all.add(id)));
-      form.value.studentIds = [...all];
-    },
-    { deep: true }
+  () => form.value.waypoints.map(w => w.studentIds),
+  () => {
+    const all = new Set();
+    form.value.waypoints.forEach(w => (w.studentIds || []).forEach(id => all.add(id)));
+    form.value.studentIds = [...all];
+  },
+  { deep: true }
 );
 
 /** Route is "complete" when all required fields are filled and has ≥ 2 stops */
 const isRouteComplete = computed(() => {
   const f = form.value;
   return !!(
-      f.type &&
-      f.driverId &&
-      f.vehicleId &&
-      f.studentIds?.length > 0 &&
-      f.waypoints?.length >= 2 &&
-      f.scheduledStartTime
+    f.type &&
+    f.driverId &&
+    f.vehicleId &&
+    f.studentIds?.length > 0 &&
+    f.waypoints?.length >= 2 &&
+    f.scheduledStartTime
   );
 });
 
@@ -160,8 +160,8 @@ async function showRouteOnMap(route) {
 
   wps.forEach((wp, i) => {
     const m = L.marker(coords[i], { icon: stopDivIcon(i + 1, i === 0, i === wps.length - 1) })
-        .addTo(map)
-        .bindPopup(`<b>Parada ${i + 1}</b><br>${wp.name}`);
+      .addTo(map)
+      .bindPopup(`<b>Parada ${i + 1}</b><br>${wp.name}`);
     pvMarkers.push(m);
   });
 
@@ -210,8 +210,8 @@ async function rebuildFormMap() {
       icon: stopDivIcon(i + 1, i === 0, i === wps.length - 1),
       draggable: true,
     })
-        .addTo(fMap)
-        .bindTooltip(wp.name || `Parada ${i + 1}`, { permanent: true, direction: 'top', offset: [0, -14] });
+      .addTo(fMap)
+      .bindTooltip(wp.name || `Parada ${i + 1}`, { permanent: true, direction: 'top', offset: [0, -14] });
 
     marker.on('dragend', (e) => {
       const latlng = e.target.getLatLng();
@@ -350,8 +350,8 @@ async function loadRoutes() {
   const all  = res.data || [];
   // DRIVER only sees their own routes; ADMIN/others see all.
   routes.value = isDriver.value
-      ? all.filter(r => r.driverId === userId.value)
-      : all;
+    ? all.filter(r => r.driverId === userId.value)
+    : all;
   loading.value = false;
 }
 
@@ -466,9 +466,9 @@ const typeClass = (t) => t === 'OUTBOUND' ? 'outbound' : 'return';
 
 function routeCompleteStatus(route) {
   const ok = route.type && route.driverId && route.vehicleId &&
-      route.studentIds?.length > 0 &&
-      route.waypoints?.length >= 2 &&
-      route.scheduledStartTime;
+             route.studentIds?.length > 0 &&
+             route.waypoints?.length >= 2 &&
+             route.scheduledStartTime;
   return ok;
 }
 
@@ -512,9 +512,9 @@ onBeforeUnmount(() => {
         </div>
 
         <div
-            v-for="route in routes" :key="route.id"
-            class="route-card" :class="{ active: selected?.id === route.id }"
-            @click="selectRoute(route)">
+          v-for="route in routes" :key="route.id"
+          class="route-card" :class="{ active: selected?.id === route.id }"
+          @click="selectRoute(route)">
 
           <div class="route-card-header">
             <span class="route-name">{{ route.name }}</span>
@@ -581,12 +581,12 @@ onBeforeUnmount(() => {
          CREATE / EDIT DIALOG
     ═════════════════════════════════════════════════════════ -->
     <pv-dialog
-        v-model:visible="showDialog"
-        :header="isEdit ? t('fleet-and-route-planning.management.edit') : t('fleet-and-route-planning.management.new')"
-        modal :closable="true" :draggable="false"
-        class="route-dialog"
-        style="width:96vw;max-width:1600px"
-        :pt="{ content: { style: 'padding:0;overflow:hidden;' } }">
+      v-model:visible="showDialog"
+      :header="isEdit ? t('fleet-and-route-planning.management.edit') : t('fleet-and-route-planning.management.new')"
+      modal :closable="true" :draggable="false"
+      class="route-dialog"
+      style="width:96vw;max-width:1600px"
+      :pt="{ content: { style: 'padding:0;overflow:hidden;' } }">
 
       <div class="dialog-body">
 
@@ -606,18 +606,18 @@ onBeforeUnmount(() => {
               <div class="field">
                 <label>Tipo de ruta</label>
                 <pv-select
-                    v-model="form.type"
-                    :options="TYPE_OPTIONS"
-                    option-label="label" option-value="value"
-                    class="w-full"/>
+                  v-model="form.type"
+                  :options="TYPE_OPTIONS"
+                  option-label="label" option-value="value"
+                  class="w-full"/>
               </div>
               <div class="field">
                 <label>Hora de salida <span class="req">*</span></label>
                 <pv-input-text
-                    v-model="form.scheduledStartTime"
-                    type="time"
-                    class="w-full"
-                    placeholder="06:00"/>
+                  v-model="form.scheduledStartTime"
+                  type="time"
+                  class="w-full"
+                  placeholder="06:00"/>
               </div>
             </div>
 
@@ -628,21 +628,21 @@ onBeforeUnmount(() => {
               <div class="field">
                 <label>Conductor <span class="req">*</span></label>
                 <pv-select
-                    v-model="form.driverId"
-                    :options="driverOptions"
-                    option-label="label" option-value="value"
-                    placeholder="Seleccionar conductor"
-                    :disabled="isDriver"
-                    class="w-full"/>
+                  v-model="form.driverId"
+                  :options="driverOptions"
+                  option-label="label" option-value="value"
+                  placeholder="Seleccionar conductor"
+                  :disabled="isDriver"
+                  class="w-full"/>
               </div>
               <div class="field">
                 <label>Vehículo <span class="req">*</span></label>
                 <pv-select
-                    v-model="form.vehicleId"
-                    :options="vehicleOptions"
-                    option-label="label" option-value="value"
-                    placeholder="Seleccionar vehículo"
-                    class="w-full"/>
+                  v-model="form.vehicleId"
+                  :options="vehicleOptions"
+                  option-label="label" option-value="value"
+                  placeholder="Seleccionar vehículo"
+                  class="w-full"/>
               </div>
             </div>
 
@@ -655,39 +655,39 @@ onBeforeUnmount(() => {
                 <span class="wps-count">{{ form.waypoints.length }}</span>
               </p>
               <pv-button
-                  v-if="form.waypoints.length"
-                  label="Limpiar"
-                  icon="pi pi-trash"
-                  size="small" text severity="danger"
-                  @click="clearWaypoints"/>
+                v-if="form.waypoints.length"
+                label="Limpiar"
+                icon="pi pi-trash"
+                size="small" text severity="danger"
+                @click="clearWaypoints"/>
             </div>
 
             <div class="map-hint">
               <i class="pi pi-hand-pointer hint-icon"/>
               <span>Haz clic en el mapa para agregar paradas. Arrastra los marcadores para reposicionarlos.</span>
               <pv-button
-                  v-if="form.waypoints.length >= 3"
-                  label="Optimizar orden"
-                  icon="pi pi-bolt"
-                  size="small"
-                  severity="secondary"
-                  class="ml-auto"
-                  v-tooltip.top="'Reordena las paradas intermedias para la ruta más corta (TSP)'"
-                  @click="optimizeWaypoints"/>
+                v-if="form.waypoints.length >= 3"
+                label="Optimizar orden"
+                icon="pi pi-bolt"
+                size="small"
+                severity="secondary"
+                class="ml-auto"
+                v-tooltip.top="'Reordena las paradas intermedias para la ruta más corta (TSP)'"
+                @click="optimizeWaypoints"/>
             </div>
 
             <div v-if="form.waypoints.length" class="wp-list">
               <div v-for="(wp, i) in form.waypoints" :key="i" class="wp-item">
                 <div class="wp-num"
-                     :style="{ background: i === 0 ? '#16a34a' : i === form.waypoints.length - 1 ? '#dc2626' : '#16305a' }">
+                  :style="{ background: i === 0 ? '#16a34a' : i === form.waypoints.length - 1 ? '#dc2626' : '#16305a' }">
                   {{ i + 1 }}
                 </div>
                 <div class="wp-content">
                   <pv-input-text
-                      v-model="wp.name"
-                      class="w-full wp-name-input"
-                      :placeholder="`Parada ${i + 1}`"
-                      @input="onWaypointNameChange"/>
+                    v-model="wp.name"
+                    class="w-full wp-name-input"
+                    :placeholder="`Parada ${i + 1}`"
+                    @input="onWaypointNameChange"/>
                   <span class="wp-coords">{{ wp.lat }}, {{ wp.lng }}</span>
                   <!-- Per-stop student assignment -->
                   <div class="wp-students">
@@ -696,9 +696,9 @@ onBeforeUnmount(() => {
                     </span>
                     <div class="wp-student-chips">
                       <label
-                          v-for="s in studentOptions" :key="s.value"
-                          class="wp-student-chip"
-                          :class="{ selected: (wp.studentIds || []).includes(s.value) }">
+                        v-for="s in studentOptions" :key="s.value"
+                        class="wp-student-chip"
+                        :class="{ selected: (wp.studentIds || []).includes(s.value) }">
                         <input type="checkbox" :value="s.value" v-model="wp.studentIds" style="display:none"/>
                         {{ s.name }}
                       </label>
@@ -746,11 +746,11 @@ onBeforeUnmount(() => {
           <div class="dialog-footer">
             <pv-button label="Cancelar" text @click="showDialog = false"/>
             <pv-button
-                :label="isEdit ? 'Guardar cambios' : 'Crear Ruta'"
-                icon="pi pi-check"
-                :loading="savingTrip"
-                :disabled="!form.name"
-                @click="saveRoute"/>
+              :label="isEdit ? 'Guardar cambios' : 'Crear Ruta'"
+              icon="pi pi-check"
+              :loading="savingTrip"
+              :disabled="!form.name"
+              @click="saveRoute"/>
           </div>
         </div>
 

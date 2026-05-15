@@ -20,7 +20,7 @@ onMounted(() => {
       form.value.firstName = profile.firstName;
       form.value.lastName = profile.lastName;
       form.value.phone = profile.phone;
-    } else router.push({name: 'stakeholder-profiles'});
+    } else router.push({name: 'stakeholder-and-asset-management-profiles'});
   }
 });
 
@@ -32,7 +32,7 @@ const saveProfile = () => {
     phone: form.value.phone,
   });
   if (isEdit.value) store.updateProfile(profile); else store.addProfile(profile);
-  router.push({name: 'stakeholder-profiles'});
+  router.push({name: 'stakeholder-and-asset-management-profiles'});
 };
 </script>
 
@@ -53,7 +53,7 @@ const saveProfile = () => {
         <pv-input-text id="phone" v-model="form.phone" class="w-full" required/>
       </div>
       <pv-button label="Save" icon="pi pi-save" type="submit"/>
-      <pv-button label="Cancel" class="ml-2" severity="secondary" @click="router.push({name: 'stakeholder-profiles'})"/>
+      <pv-button label="Cancel" class="ml-2" severity="secondary" @click="router.push({name: 'stakeholder-and-asset-management-profiles'})"/>
     </form>
     <div v-if="store.errors.length" class="text-red-500 mt-3">
       {{ store.errors.map(e => e.message).join(', ') }}

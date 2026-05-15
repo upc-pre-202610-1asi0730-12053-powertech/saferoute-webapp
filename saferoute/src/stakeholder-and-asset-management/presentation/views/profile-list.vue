@@ -32,7 +32,7 @@ const confirmDelete = (profile) => {
 <template>
   <div class="p-4">
     <h1>Profiles</h1>
-    <pv-button label="New Profile" class="mb-3" icon="pi pi-plus" @click="router.push({name: 'stakeholder-profile-new'})"/>
+    <pv-button label="New Profile" class="mb-3" icon="pi pi-plus" @click="router.push({name: 'stakeholder-and-asset-management-profile-new'})"/>
     <pv-data-table
         :loading="!loaded"
         :rows="5"
@@ -47,7 +47,7 @@ const confirmDelete = (profile) => {
       <pv-column header="Phone" field="phone"/>
       <pv-column header="Actions">
         <template #body="slotProps">
-          <pv-button icon="pi pi-pencil" rounded text @click="router.push({name: 'stakeholder-profile-edit', params: {id: slotProps.data.id}})"/>
+          <pv-button icon="pi pi-pencil" rounded text @click="router.push({name: 'stakeholder-and-asset-management-profile-edit', params: {id: slotProps.data.id}})"/>
           <pv-button icon="pi pi-trash" rounded severity="danger" text @click="confirmDelete(slotProps.data)"/>
         </template>
       </pv-column>

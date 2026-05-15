@@ -21,7 +21,7 @@ import { AssignmentAssembler } from "../infrastructure/assignment.assembler.js";
 const api = new FleetApi();
 
 export const useFleetStore = defineStore('fleet', () => {
-    // ─── State ─────────────────────────────────────────────────────
+    // ─── State (diagram) ─────────────────────────────────────────────────────
     const routes      = ref([]);
     const stops       = ref([]);
     const vehicles    = ref([]);
@@ -107,7 +107,7 @@ export const useFleetStore = defineStore('fleet', () => {
         }
     }
 
-    // ─── Backward-compatible methods  ────────────────
+    // ─── Backward-compatible methods (used by existing views) ────────────────
 
     function fetchRoutes() {
         api.getRoutes().then(response => {
@@ -146,7 +146,7 @@ export const useFleetStore = defineStore('fleet', () => {
     return {
         // state
         routes, stops, vehicles, assignments, errors, loaded, count,
-        // methods
+        // diagram methods
         loadRoutes, loadStops, loadVehicles, createRoute, activateRoute, createVehicle, createAssignment,
         fetchRoutes, getRouteById, addRoute, updateRoute, deleteRoute
     };

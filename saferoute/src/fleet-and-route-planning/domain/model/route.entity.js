@@ -32,25 +32,25 @@ export class Route {
      * @param {number} [params.stops=0] - Number of stops.
      */
     constructor({
-                    id = null,
-                    name = '',
-                    organizationId = null,
-                    routeState = '',
-                    departureTime = '',
-                    serviceDays = [],
-                    vehicleId = null,
-                    origin = '',
-                    destination = '',
-                    type = '',
-                    driverId = null,
-                    driverName = '',
-                    vehiclePlate = '',
-                    studentIds = [],
-                    scheduledStartTime = '',
-                    status = '',
-                    waypoints = [],
-                    stops = 0,
-                }) {
+        id = null,
+        name = '',
+        organizationId = null,
+        routeState = '',
+        departureTime = '',
+        serviceDays = [],
+        vehicleId = null,
+        origin = '',
+        destination = '',
+        type = '',
+        driverId = null,
+        driverName = '',
+        vehiclePlate = '',
+        studentIds = [],
+        scheduledStartTime = '',
+        status = '',
+        waypoints = [],
+        stops = 0,
+    }) {
         // Diagram fields
         this.id = id;
         this.name = name;

@@ -246,7 +246,7 @@ const hire = async (plan) => {
         <!-- price -->
         <div class="plan-price-block">
           <div class="plan-price">
-            <span class="currency">$</span>
+            <span class="currency">S/</span>
             <span class="amount" :class="{ 'price-strike': priceAfterCredit(plan) !== null }">
               {{ displayPrice(plan) }}
             </span>
@@ -256,11 +256,11 @@ const hire = async (plan) => {
             <span class="per">/ mes</span>
           </div>
           <div v-if="priceAfterCredit(plan) !== null" class="proration-chip">
-            <i class="pi pi-tag"/> Crédito aplicado: −${{ proratedCredit }}
+            <i class="pi pi-tag"/> Crédito aplicado: −S/ {{ proratedCredit }}
             <span class="proration-days">({{ remainingDays }} días restantes)</span>
           </div>
           <p v-else-if="billing === 'annual'" class="annual-hint">
-            ${{ annualTotal(plan) }} al año · 2 meses gratis
+            S/ {{ annualTotal(plan) }} al año · 2 meses gratis
           </p>
           <p v-else class="annual-hint">
             o S/ {{ annualTotal(plan) }} al año con 20% off
@@ -297,7 +297,7 @@ const hire = async (plan) => {
 
     <!-- ── Footer note ───────────────────────────────────── -->
     <p class="pricing-note">
-      <i class="pi pi-lock"/> Pago seguro &nbsp;·&nbsp; Cancela en cualquier momento &nbsp;·&nbsp; Precios en USD ($)
+      <i class="pi pi-lock"/> Pago seguro &nbsp;·&nbsp; Cancela en cualquier momento &nbsp;·&nbsp; Precios en Soles (PEN)
     </p>
 
   </div>

@@ -32,7 +32,7 @@ router.beforeEach((to, from, next) => {
    const baseTitle = 'SafeRoute';
    document.title = `${baseTitle} | ${to.meta['title'] || 'Default'}`;
 
-
+   
    const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
    const token = localStorage.getItem('saferoute.token');
 

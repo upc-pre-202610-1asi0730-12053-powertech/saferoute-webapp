@@ -12,14 +12,14 @@ export class Trip {
      * @param {Object} params
      */
     constructor({
-                    id = null, organizationId = null, routeId = null, driverId = null,
-                    tripState = '', startTime = null, endTime = null,
-                    attendances = [], incidents = [],
-                    routeName = '', driverName = '', vehicleId = null, vehiclePlate = '',
-                    studentIds = [], tripType = '', scheduledDate = '', scheduledStartTime = '',
-                    status = '', studentsTotal = 0, studentsBoarded = 0,
-                    currentStop = null, currentLocation = null,
-                }) {
+        id = null, organizationId = null, routeId = null, driverId = null,
+        tripState = '', startTime = null, endTime = null,
+        attendances = [], incidents = [],
+        routeName = '', driverName = '', vehicleId = null, vehiclePlate = '',
+        studentIds = [], tripType = '', scheduledDate = '', scheduledStartTime = '',
+        status = '', studentsTotal = 0, studentsBoarded = 0,
+        currentStop = null, currentLocation = null,
+    }) {
         // Diagram fields
         this.id = id;
         this.organizationId = organizationId;

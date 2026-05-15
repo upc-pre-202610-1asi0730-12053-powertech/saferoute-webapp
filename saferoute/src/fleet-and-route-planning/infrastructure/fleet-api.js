@@ -74,7 +74,7 @@ export class FleetApi extends BaseApi {
         this.#vehiclesEndpoint = new BaseEndpoint(this, vehicleEndpointPath);
     }
 
-    // ─── Route methods ─────────────────────────────────────────────
+    // ─── Route methods (diagram) ─────────────────────────────────────────────
 
     createRoute(resource) {
         if (useFakeAuth) {
@@ -97,7 +97,7 @@ export class FleetApi extends BaseApi {
         return this.http.patch(`${routeEndpointPath}/${id}`, { routeState: 'ACTIVE' });
     }
 
-    // ─── Stop methods ──────────────────────────────────────────────
+    // ─── Stop methods (diagram) ──────────────────────────────────────────────
 
     addStop(request) {
         if (useFakeAuth) {
@@ -123,7 +123,7 @@ export class FleetApi extends BaseApi {
         return this.http.get(`${stopEndpointPath}?routeId=${routeId}`);
     }
 
-    // ─── Vehicle methods  ───────────────────────────────────────────
+    // ─── Vehicle methods (diagram) ───────────────────────────────────────────
 
     createVehicle(request) {
         if (useFakeAuth) {
@@ -139,7 +139,7 @@ export class FleetApi extends BaseApi {
         return this.http.get(`${vehicleEndpointPath}?organizationId=${organizationId}`);
     }
 
-    // ─── Assignment methods ────────────────────────────────────────
+    // ─── Assignment methods (diagram) ────────────────────────────────────────
 
     createAssignment(request) {
         if (useFakeAuth) {
@@ -158,7 +158,7 @@ export class FleetApi extends BaseApi {
         return this.http.get(`/assignments?routeId=${routeId}`);
     }
 
-    // ─── Backward-compatible methods ────────────────
+    // ─── Backward-compatible methods (used by existing views) ────────────────
 
     getRoutes() {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: mockRoutes() });

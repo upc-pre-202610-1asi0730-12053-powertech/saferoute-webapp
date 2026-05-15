@@ -65,12 +65,12 @@ export const useIamStore = defineStore('identity-and-access-management', () => {
      * @returns {{token: string, userResource: ?Object}}
      */
     function parseSignInResponse(data) {
-
+        
         if (Array.isArray(data)) {
             if (data.length === 0) return { token: null, userResource: null };
             return { token: `dev-token-${data[0].id}`, userResource: data[0] };
         }
-
+        
         if (data && typeof data === 'object') {
             const userResource = data.user || data;
             const token = data.token || data.accessToken || `dev-token-${userResource.id}`;

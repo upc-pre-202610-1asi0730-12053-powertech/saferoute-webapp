@@ -188,7 +188,7 @@ export class TripApi extends BaseApi {
             t.scheduledStartTime === route.scheduledStartTime &&
             ['SCHEDULED', 'EN_ROUTE'].includes(t.status) &&
             (t.driverId === route.driverId ||
-                (route.vehicleId && t.vehicleId === route.vehicleId))
+             (route.vehicleId && t.vehicleId === route.vehicleId))
         );
         if (conflict) return Promise.resolve({ status: 409, reason: 'conflict', data: conflict });
 

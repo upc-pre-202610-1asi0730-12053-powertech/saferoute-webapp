@@ -21,7 +21,7 @@ export class Plan {
      * @param {string} [params.planTier=''] - Plan tier ('BASIC' | 'INTERMEDIATE' | 'COMPLETE').
      * @param {number} [params.maxRoutes=0] - Maximum number of routes allowed by the plan.
      * @param {number} [params.maxDrivers=0] - Maximum number of drivers allowed by the plan.
-     * @param {number} [params.price=0] - Monthly price (USD).
+     * @param {number} [params.price=0] - Monthly price (PEN).
      */
     constructor({ id = null, planTier = '', maxRoutes = 0, maxDrivers = 0, price = 0 }) {
         this.id = id;
