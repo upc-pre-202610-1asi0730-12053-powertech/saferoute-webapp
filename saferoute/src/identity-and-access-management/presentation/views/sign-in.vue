@@ -81,7 +81,7 @@ const submit = async () => {
 
       <div class="auth-footer mt-4">
         <span>{{ t('identity-and-access-management.sign-in.no-account') }}</span>
-        <pv-button :label="t('identity-and-access-management.actions.register')" link @click="router.push({name: 'identity-and-access-management-sign-up'})"/>
+        <pv-button :label="t('identity-and-access-management.actions.register')" link @click="router.push({name: 'iam-sign-up'})"/>
       </div>
     </div>
   </div>

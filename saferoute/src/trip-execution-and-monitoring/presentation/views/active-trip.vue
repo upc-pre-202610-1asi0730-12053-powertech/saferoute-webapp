@@ -628,8 +628,9 @@ const boardingState = ref({});  // { [childId]: 'ABORDADO' | 'AUSENTE' }
 
 const boardingStudents = computed(() => {
   if (!tripData.value?.studentIds) return [];
-  const extra = JSON.parse(localStorage.getItem(`saferoute.mock.children.${iamStore.currentUser?.organizationId || 'default'}`) || 'null');
-  const allChildren = extra || seedData.children;
+  const orgId = iamStore.currentUser?.organizationId || null;
+  const extra = JSON.parse(localStorage.getItem(`saferoute.mock.children.${orgId || 'default'}`) || 'null');
+  const allChildren = extra || (orgId ? seedData.children.filter(c => c.organizationId === orgId) : []);
   return allChildren
     .filter(c => tripData.value.studentIds.includes(c.id))
     .map(c => ({ ...c, boardingMark: boardingState.value[c.id] ?? null }));

@@ -27,7 +27,7 @@ function mockRoutes() {
 
 function mockVehicles() {
     const orgId = getCurrentOrgId();
-    const seed  = orgId ? seedData.vehicles.filter(v => v.organizationId === orgId) : seedData.vehicles;
+    const seed  = orgId ? seedData.vehicles.filter(v => v.organizationId === orgId) : [];
     const extra = JSON.parse(localStorage.getItem(mockVehicleKey()) || '[]');
     return [...seed, ...extra];
 }
