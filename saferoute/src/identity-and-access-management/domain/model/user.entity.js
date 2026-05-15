@@ -1,37 +1,40 @@
 /**
-* User entity within the IAM bounded context.
-*
-* @class User
-*/
+ * User entity within the IAM bounded context.
+ *
+ * @class User
+ */
 export class User {
-   #_id;
-   #_username;
-   #_email;
-   #_roles;
+    /**
+     * @param {Object} params - Entity attributes.
+     * @param {?string} [params.id=null] - User identifier.
+     * @param {string} [params.firstName=''] - User's first name.
+     * @param {string} [params.lastName=''] - User's last name.
+     * @param {string} [params.email=''] - User's email address.
+     * @param {string} [params.roleTier=''] - Role tier (e.g. 'ADMIN', 'DRIVER', 'PARENT').
+     * @param {?string} [params.organizationId=null] - FK of the organization the user belongs to.
+     */
+    constructor({ id = null, firstName = '', lastName = '', email = '', roleTier = '', organizationId = null }) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.email = email;
+        this.roleTier = roleTier;
+        this.organizationId = organizationId;
+    }
 
-   /**
-    * @param {Object} params - Entity attributes.
-    * @param {?number} [params.id=null] - User identifier.
-    * @param {string} [params.username=''] - Username.
-    * @param {string} [params.email=''] - Email.
-    * @param {string} [params.roles=''] - Roles.
-    */
-   constructor({ id = null, username = '', email = '', roles = ''}) {
-       this.#_id = id;
-       this.#_username = username;
-       this.#_email = email;
-       this.#_roles = roles;
-   }
+    /**
+     * Convenience computed full name.
+     * @returns {string}
+     */
+    get fullName() {
+        return `${this.firstName} ${this.lastName}`.trim();
+    }
 
-   get id() { return this.#_id; }
-   set id(value) { this.#_id = value; }
-
-   get username() { return this.#_username; }
-   set username(value) { this.#_username = value; }
-
-   get email() { return this.#_email; }
-   set email(value) { this.#_email = value; }
-
-   get roles() { return this.#_roles; }
-   set roles(value) { this.#_roles = value; }
+    /**
+     * Whether the user has administrator privileges.
+     * @returns {boolean}
+     */
+    isAdmin() {
+        return this.roleTier === 'ADMIN';
+    }
 }
