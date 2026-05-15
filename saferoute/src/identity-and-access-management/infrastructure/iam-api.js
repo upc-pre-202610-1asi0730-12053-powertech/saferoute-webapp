@@ -63,7 +63,9 @@ export class IamApi extends BaseApi {
             const found = mockUsers().filter(u => u.email === email && u.password === password);
             return Promise.resolve({ data: found });
         }
-        return this.http.post(signInEndpointPath, { email, password });
+        // Adaptación para usar el json-server base que solo tiene '/users'
+        // json-server permite filtrar datos pasando query params
+        return this.http.get(`${usersEndpointPath}?email=${email}&password=${password}`);
     }
 
     registerUser(request) {
@@ -75,7 +77,8 @@ export class IamApi extends BaseApi {
             saveMockUser(newUser);
             return Promise.resolve({ data: newUser });
         }
-        return this.http.post(signUpEndpointPath, request);
+        // json-server crea nuevos registros haciendo un POST a la colección
+        return this.http.post(usersEndpointPath, request);
     }
 
     // ─── Users ───────────────────────────────────────────────────────────────
