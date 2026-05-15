@@ -1,37 +1,40 @@
 /**
-* Plan entity within the Subscription bounded context.
-*
-* @class Plan
-*/
+ * Plan tier constants for SafeRoute subscriptions.
+ * @readonly
+ * @enum {string}
+ */
+export const PlanTier = Object.freeze({
+    BASIC:        'BASIC',
+    INTERMEDIATE: 'INTERMEDIATE',
+    COMPLETE:     'COMPLETE'
+});
+
+/**
+ * Plan entity within the Subscription bounded context.
+ *
+ * @class Plan
+ */
 export class Plan {
-   #_id;
-   #_name;
-   #_price;
-   #_benefits;
+    /**
+     * @param {Object} params - Entity attributes.
+     * @param {?string} [params.id=null] - Plan identifier.
+     * @param {string} [params.planTier=''] - Plan tier ('BASIC' | 'INTERMEDIATE' | 'COMPLETE').
+     * @param {number} [params.maxRoutes=0] - Maximum number of routes allowed by the plan.
+     * @param {number} [params.maxDrivers=0] - Maximum number of drivers allowed by the plan.
+     * @param {number} [params.price=0] - Monthly price (USD).
+     */
+    constructor({ id = null, planTier = '', maxRoutes = 0, maxDrivers = 0, price = 0 }) {
+        this.id = id;
+        this.planTier = planTier;
+        this.maxRoutes = maxRoutes;
+        this.maxDrivers = maxDrivers;
+        this.price = price;
+    }
 
-   /**
-    * @param {Object} params - Entity attributes.
-    * @param {?number} [params.id=null] - Plan identifier.
-    * @param {string} [params.name=''] - Plan name.
-    * @param {number} [params.price=0] - Plan price.
-    * @param {string} [params.benefits=''] - Plan benefits.
-    */
-   constructor({ id = null, name = '', price = 0, benefits = ''}) {
-       this.#_id = id;
-       this.#_name = name;
-       this.#_price = price;
-       this.#_benefits = benefits;
-   }
-
-   get id() { return this.#_id; }
-   set id(value) { this.#_id = value; }
-
-   get name() { return this.#_name; }
-   set name(value) { this.#_name = value; }
-
-   get price() { return this.#_price; }
-   set price(value) { this.#_price = value; }
-
-   get benefits() { return this.#_benefits; }
-   set benefits(value) { this.#_benefits = value; }
+    /** @returns {boolean} */
+    isBasic()        { return this.planTier === PlanTier.BASIC; }
+    /** @returns {boolean} */
+    isIntermediate() { return this.planTier === PlanTier.INTERMEDIATE; }
+    /** @returns {boolean} */
+    isComplete()     { return this.planTier === PlanTier.COMPLETE; }
 }
