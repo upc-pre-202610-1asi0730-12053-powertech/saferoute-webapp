@@ -1,7 +1,7 @@
 import {Profile} from "../domain/model/profile.entity.js";
 
 /**
- * Maps stakeholder profile resources into domain entities.
+ * Maps stakeholder-and-asset-management profile resources into domain entities.
  *
  * @class ProfileAssembler
  */
