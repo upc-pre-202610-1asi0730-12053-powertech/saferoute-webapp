@@ -3,7 +3,7 @@ import Home from "./shared/presentation/views/home.vue";
 import {iamRoutes} from "./iam/presentation/iam-routes.js";
 import {stakeholderRoutes} from "./stakeholder/presentation/stakeholder-routes.js";
 import {routeRoutes} from "./fleet-and-route-planning/presentation/route-routes.js";
-import {tripRoutes} from "./trip/presentation/trip-routes.js";
+import {tripRoutes} from "./trip-execution-and-monitoring/presentation/trip-routes.js";
 import {subscriptionRoutes} from "./subscription/presentation/subscription-routes.js";
 import {notificationRoutes} from "./notification/presentation/notification-routes.js";
 
