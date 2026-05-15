@@ -1,4 +1,5 @@
 import axios from "axios";
+import { iamInterceptor } from "../../identity-and-access-management/infrastructure/iam.interceptor.js";
 
 const platformApi = import.meta.env.VITE_API_BASE_URL;
 
@@ -16,7 +17,8 @@ export class BaseApi {
    #http;
 
    /**
-    * Initializes the Axios HTTP client with the base URL from environment variables
+    * Initializes the Axios HTTP client with the base URL from environment variables.
+    * Wires the IAM interceptor so authenticated requests carry the bearer token.
     */
    constructor() {
        this.#http = axios.create({
@@ -26,6 +28,7 @@ export class BaseApi {
                'Access-Control-Allow-Origin': '*'
            },
        });
+       this.#http.interceptors.request.use(iamInterceptor);
    }
 
    /**
@@ -36,3 +39,9 @@ export class BaseApi {
        return this.#http;
    }
 }
+
+/**
+ * Alias for BaseApi — matches the `ApiClient` name defined in the shared
+ * infrastructure diagram (vue-saferoute-shared.puml).
+ */
+export { BaseApi as ApiClient };
