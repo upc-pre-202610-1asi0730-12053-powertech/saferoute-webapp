@@ -13,9 +13,9 @@ function getCurrentOrgId() {
 function mockAlertKey() { return `saferoute.mock.alerts.${getCurrentOrgId() || 'default'}`; }
 function mockAnnouncementKey() { return `saferoute.mock.announcements.${getCurrentOrgId() || 'default'}`; }
 
-function mockNotifications() {
-    const orgId = getCurrentOrgId();
-    return orgId ? seedData.notifications.filter(n => n.organizationId === orgId) : seedData.notifications;
+function mockNotifications(orgId) {
+    const id = orgId || getCurrentOrgId();
+    return id ? seedData.notifications.filter(n => n.organizationId === id) : [];
 }
 
 function mockAlerts() { return JSON.parse(localStorage.getItem(mockAlertKey()) || '[]'); }
@@ -97,9 +97,11 @@ export class NotificationsApi extends BaseApi {
 
     // ─── Backward-compatible methods ─────────────────────────────────────────
 
-    getMessages() {
-        if (useFakeAuth) return Promise.resolve({ status: 200, data: mockNotifications() });
-        return this.#notificationsEndpoint.getAll();
+    getMessages(organizationId) {
+        if (useFakeAuth) return Promise.resolve({ status: 200, data: mockNotifications(organizationId) });
+        return organizationId
+            ? this.http.get(`${endpointPath}?organizationId=${organizationId}`)
+            : this.#notificationsEndpoint.getAll();
     }
 
     getMessageById(id) { return this.#notificationsEndpoint.getById(id); }

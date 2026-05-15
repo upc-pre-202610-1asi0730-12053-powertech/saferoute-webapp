@@ -3,18 +3,18 @@ import {useI18n} from "vue-i18n";
 import {useRouter} from "vue-router";
 import {useConfirm} from "primevue";
 import {useTripStore} from "../../application/trip.store.js";
+import {useIamStore} from "../../../../identity-and-access-management/application/iam.store.js";
 import {onMounted, toRefs} from "vue";
 
 const {t} = useI18n();
 const router = useRouter();
 const confirm = useConfirm();
 const store = useTripStore();
+const iamStore = useIamStore();
 const {trips, errors, loaded} = toRefs(store);
 
 onMounted(() => {
-  if (!store.loaded) {
-    store.fetchTrips();
-  }
+  store.fetchTrips(iamStore.currentUser?.organizationId);
 });
 
 const confirmDelete = (trip) => {

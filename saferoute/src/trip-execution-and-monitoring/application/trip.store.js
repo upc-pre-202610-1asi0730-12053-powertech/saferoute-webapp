@@ -81,8 +81,9 @@ export const useTripStore = defineStore('trip-execution-and-monitoring', () => {
 
     // ─── Backward-compatible methods (used by existing views) ────────────────
 
-    function fetchTrips() {
-        api.getTrips().then(response => {
+    function fetchTrips(organizationId) {
+        loaded.value = false;
+        api.getTrips(organizationId).then(response => {
             trips.value = TripAssembler.toEntitiesFromResponse(response);
             loaded.value = true;
         }).catch(error => errors.value.push(error));
