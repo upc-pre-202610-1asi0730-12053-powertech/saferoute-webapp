@@ -1,8 +1,14 @@
-const planList = () => import('./views/plan-list.vue');
-const planForm = () => import('./views/plan-form.vue');
+// Lazy-loaded views
+const planSelection      = () => import('./views/plan-selection.vue');
+const subscriptionStatus = () => import('./views/subscription-status.vue');
+const checkout           = () => import('./views/checkout.vue');
 
+/**
+ * Routes for the Subscription bounded context.
+ * Mounted under `/subscription-and-plan-management` from the root router (see `src/router.js`).
+ */
 export const subscriptionRoutes = [
-   { path: 'plans',          name: 'subscription-plans',      component: planList, meta: {title: 'Plans'}},
-   { path: 'plans/new',      name: 'subscription-plan-new',   component: planForm, meta: {title: 'New Plan'}},
-   { path: 'plans/:id/edit', name: 'subscription-plan-edit',  component: planForm, meta: {title: 'Edit Plan'}}
+    { path: 'plans',    name: 'subscription-and-plan-management-plans',    component: planSelection,      meta: { title: 'Plans',        requiresAuth: true  } },
+    { path: 'status',   name: 'subscription-and-plan-management-status',   component: subscriptionStatus, meta: { title: 'Subscription', requiresAuth: true  } },
+    { path: 'checkout', name: 'subscription-and-plan-management-checkout', component: checkout,           meta: { title: 'Checkout',     hideNav: true        } },
 ];
