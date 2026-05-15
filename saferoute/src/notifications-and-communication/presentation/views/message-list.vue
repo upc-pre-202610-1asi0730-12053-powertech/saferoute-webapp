@@ -3,7 +3,7 @@ import {useI18n} from "vue-i18n";
 import {useRouter} from "vue-router";
 import {useConfirm} from "primevue";
 import {useNotificationStore} from "../../application/notification.store.js";
-import {useIamStore} from "../../../../identity-and-access-management/application/iam.store.js";
+import {useIamStore} from "../../../identity-and-access-management/application/iam.store.js";
 import {onMounted, toRefs} from "vue";
 
 const {t} = useI18n();
