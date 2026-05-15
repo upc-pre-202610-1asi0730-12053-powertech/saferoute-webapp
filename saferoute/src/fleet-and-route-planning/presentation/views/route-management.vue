@@ -28,18 +28,40 @@ const subscriptionStore = useSubscriptionStore();
 const isDriver = computed(() => iamStore.currentUser?.roleTier === 'DRIVER');
 const userId   = computed(() => iamStore.currentUser?.id);
 
-// ── Reference data (mock — from db.json) ──────────────────────────────────────
-const driverOptions  = seedData.profiles
-  .filter(p => p.role === 'driver' && p.status === 'ACTIVE')
-  .map(p => ({ label: `${p.firstName} ${p.lastName}`, value: p.userId || String(p.id), name: `${p.firstName} ${p.lastName}` }));
+// ── Reference data — loaded per-org in onMounted ──────────────────────────────
+const driverOptions  = ref([]);
+const vehicleOptions = ref([]);
+const studentOptions = ref([]);
 
-const vehicleOptions = seedData.vehicles
-  .filter(v => v.status === 'ACTIVE')
-  .map(v => ({ label: `${v.plate} — ${v.model}`, value: v.id, plate: v.plate }));
+function loadOrgOptions() {
+  const orgId = iamStore.currentUser?.organizationId || null;
 
-const studentOptions = seedData.children
-  .filter(c => c.status !== false)
-  .map(c => ({ label: `${c.name} (${c.grade})`, value: c.id, name: c.name, grade: c.grade }));
+  // Drivers: seed filtered by org + localStorage extra
+  const seedDrivers = orgId
+      ? seedData.profiles.filter(p => p.organizationId === orgId && p.role === 'driver' && p.status === 'ACTIVE')
+      : [];
+  const extraDrivers = JSON.parse(localStorage.getItem(`saferoute.mock.profiles.${orgId || 'default'}`) || '[]')
+      .filter(p => p.role === 'driver');
+  driverOptions.value = [...seedDrivers, ...extraDrivers]
+      .map(p => ({ label: `${p.firstName} ${p.lastName}`, value: p.userId || String(p.id), name: `${p.firstName} ${p.lastName}` }));
+
+  // Vehicles: seed filtered by org + localStorage extra
+  const seedVehicles = orgId
+      ? seedData.vehicles.filter(v => v.organizationId === orgId && v.status === 'ACTIVE')
+      : [];
+  const extraVehicles = JSON.parse(localStorage.getItem(`saferoute.mock.vehicles.${orgId || 'default'}`) || '[]');
+  vehicleOptions.value = [...seedVehicles, ...extraVehicles]
+      .map(v => ({ label: `${v.plate} — ${v.model}`, value: v.id, plate: v.plate }));
+
+  // Students (children): seed filtered by org + localStorage extra
+  const seedChildren = orgId
+      ? seedData.children.filter(c => c.organizationId === orgId && c.status !== false)
+      : [];
+  const extraChildren = JSON.parse(localStorage.getItem(`saferoute.mock.children.${orgId || 'default'}`) || '[]');
+  studentOptions.value = [...seedChildren, ...extraChildren]
+      .filter(c => c.status !== false)
+      .map(c => ({ label: `${c.name} (${c.grade})`, value: c.id, name: c.name, grade: c.grade }));
+}
 
 // ── Route state ────────────────────────────────────────────────────────────────
 const routes        = ref([]);
@@ -66,7 +88,7 @@ const emptyForm = () => ({
   studentIds:         [],
   scheduledStartTime: '',
   status:             'ACTIVE',
-  organizationId:     'org-1',
+  organizationId:     iamStore.currentUser?.organizationId || 'default',
   waypoints:          [],
   origin:             '',
   destination:        '',
