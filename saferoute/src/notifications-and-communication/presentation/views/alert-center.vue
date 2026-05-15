@@ -6,19 +6,22 @@ import seedData from '../../../server/db.json';
 const iamStore = useIamStore();
 const user     = iamStore.currentUser;
 const isAdmin  = iamStore.isAdmin;
+const orgId    = user?.organizationId || null;
 
-// ── Load seed data + localStorage extras ─────────────────────
-const INCIDENTS_KEY  = 'saferoute.incidents';
-const NOTIFS_KEY     = 'saferoute.notifications';
+// ── Load seed data + localStorage extras — scoped by org ─────
+const INCIDENTS_KEY  = `saferoute.incidents.${orgId || 'default'}`;
+const NOTIFS_KEY     = `saferoute.notifications.${orgId || 'default'}`;
 
 function loadIncidents() {
   const extra = JSON.parse(localStorage.getItem(INCIDENTS_KEY) || '[]');
-  return [...seedData.incidents, ...extra];
+  const seed  = orgId ? seedData.incidents.filter(i => i.organizationId === orgId) : [];
+  return [...seed, ...extra];
 }
 function loadNotifs() {
   const state = JSON.parse(localStorage.getItem(NOTIFS_KEY + '.state') || '{}');
   const extra = JSON.parse(localStorage.getItem(NOTIFS_KEY + '.extra') || '[]');
-  const base  = [...seedData.notifications, ...extra];
+  const seed  = orgId ? seedData.notifications.filter(n => n.organizationId === orgId) : [];
+  const base  = [...seed, ...extra];
   return base.map(n => state[n.id] ? { ...n, ...state[n.id] } : n);
 }
 
@@ -114,8 +117,9 @@ const emptyForm = () => ({
 const form = ref(emptyForm());
 
 const trips = computed(() => {
-  const extra = JSON.parse(localStorage.getItem('saferoute.mock.trips.extra') || '[]');
-  return [...seedData.trips, ...extra];
+  const extra = JSON.parse(localStorage.getItem(`saferoute.mock.trips.extra.${orgId || 'default'}`) || '[]');
+  const seed  = orgId ? seedData.trips.filter(t => t.organizationId === orgId) : [];
+  return [...seed, ...extra];
 });
 
 function openNew() { form.value = emptyForm(); newDialog.value = true; }
@@ -134,7 +138,7 @@ function saveIncident() {
     reportedBy:  user?.id || 'UNKNOWN',
     timestamp:   new Date().toISOString(),
     status:      'OPEN',
-    organizationId: 'org-1',
+    organizationId: orgId,
   };
   incidents.value.unshift(incident);
   const extra = JSON.parse(localStorage.getItem(INCIDENTS_KEY) || '[]');
