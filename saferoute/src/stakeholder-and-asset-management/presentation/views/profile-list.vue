@@ -3,18 +3,18 @@ import {useI18n} from "vue-i18n";
 import {useRouter} from "vue-router";
 import {useConfirm} from "primevue";
 import {useStakeholderStore} from "../../application/stakeholder.store.js";
+import {useIamStore} from "../../../identity-and-access-management/application/iam.store.js";
 import {onMounted, toRefs} from "vue";
 
 const {t} = useI18n();
 const router = useRouter();
 const confirm = useConfirm();
 const store = useStakeholderStore();
+const iamStore = useIamStore();
 const {profiles, errors, loaded} = toRefs(store);
 
 onMounted(() => {
-  if (!store.loaded) {
-    store.fetchProfiles();
-  }
+  store.fetchProfiles(iamStore.currentUser?.organizationId);
 });
 
 const confirmDelete = (profile) => {

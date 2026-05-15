@@ -224,17 +224,30 @@ onMounted(() => {
 /* ── LOGISTICS section ───────────────────────────────────── */
 const logTab = ref('drivers');
 
-const drivers = ref([
-  { id: 1, name: 'Carlos Ramirez', license: 'Q-123456', vehicle_id: 1, status: true  },
-  { id: 2, name: 'Luis Torres',    license: 'P-789012', vehicle_id: 2, status: true  },
-  { id: 3, name: 'Pedro Mendoza',  license: 'R-345678', vehicle_id: null, status: false },
-]);
+const DRIVERS_KEY = `saferoute.drivers.${orgId || 'default'}`;
+const FLEET_KEY   = `saferoute.fleet.${orgId || 'default'}`;
 
-const fleet = ref([
-  { id: 1, plate: 'ABC-123', model: 'Mercedes Sprinter', capacity: 20, status: true  },
-  { id: 2, plate: 'XYZ-456', model: 'Toyota Coaster',    capacity: 25, status: true  },
-  { id: 3, plate: 'DEF-789', model: 'Hyundai County',    capacity: 30, status: false },
-]);
+function loadDrivers() {
+  const stored = localStorage.getItem(DRIVERS_KEY);
+  if (stored !== null) return JSON.parse(stored);
+  if (!orgId) return [];
+  return seedData.profiles
+    .filter(p => p.organizationId === orgId && p.role === 'driver')
+    .map(p => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, license: p.license || '', vehicle_id: p.vehicleId || null, status: p.status === 'ACTIVE' }));
+}
+function loadFleet() {
+  const stored = localStorage.getItem(FLEET_KEY);
+  if (stored !== null) return JSON.parse(stored);
+  if (!orgId) return [];
+  return seedData.vehicles
+    .filter(v => v.organizationId === orgId)
+    .map(v => ({ id: v.id, plate: v.plate, model: v.model, capacity: v.capacity, status: v.status === 'ACTIVE' }));
+}
+function saveDrivers(list) { localStorage.setItem(DRIVERS_KEY, JSON.stringify(list)); }
+function saveFleet(list)   { localStorage.setItem(FLEET_KEY,   JSON.stringify(list)); }
+
+const drivers = ref(loadDrivers());
+const fleet   = ref(loadFleet());
 
 const emptyLogForm = () => ({ id: null, nameOrPlate: '', licenseOrModel: '', vehicle_id: null, capacity: 0, status: true, licenseVerified: false });
 const logForm    = ref(emptyLogForm());
@@ -285,6 +298,7 @@ const saveLog = () => {
       drivers.value.push({ id: Date.now(), name: logForm.value.nameOrPlate, license: logForm.value.licenseOrModel, vehicle_id: logForm.value.vehicle_id, status: logForm.value.status });
       toast.add({ severity: 'success', summary: 'Registrado', detail: 'Conductor registrado.', life: 3000 });
     }
+    saveDrivers(drivers.value);
   } else {
     const isDuplicate = fleet.value.some(f => f.plate === logForm.value.nameOrPlate && f.id !== logForm.value.id);
     if (isDuplicate) {
@@ -299,6 +313,7 @@ const saveLog = () => {
       fleet.value.push({ id: Date.now(), plate: logForm.value.nameOrPlate, model: logForm.value.licenseOrModel, capacity: logForm.value.capacity, status: logForm.value.status });
       toast.add({ severity: 'success', summary: 'Registrado', detail: 'Vehículo registrado.', life: 3000 });
     }
+    saveFleet(fleet.value);
   }
   logDrawer.value = false;
 };
@@ -311,8 +326,8 @@ const deleteLog = (item) => {
     icon: 'pi pi-exclamation-triangle',
     acceptSeverity: 'danger',
     accept: () => {
-      if (isDriver) { drivers.value = drivers.value.filter(d => d.id !== item.id); }
-      else          { fleet.value   = fleet.value.filter(f => f.id !== item.id);   }
+      if (isDriver) { drivers.value = drivers.value.filter(d => d.id !== item.id); saveDrivers(drivers.value); }
+      else          { fleet.value   = fleet.value.filter(f => f.id !== item.id);   saveFleet(fleet.value);     }
       toast.add({ severity: 'warn', summary: 'Eliminado', detail: 'Registro eliminado.', life: 3000 });
     },
   });

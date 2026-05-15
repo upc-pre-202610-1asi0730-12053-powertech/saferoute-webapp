@@ -16,10 +16,10 @@ function getCurrentOrgId() {
 function mockKey() { return `saferoute.mock.profiles.${getCurrentOrgId() || 'default'}`; }
 function mockGroupKey() { return `saferoute.mock.groups.${getCurrentOrgId() || 'default'}`; }
 
-function mockProfiles() {
-    const orgId = getCurrentOrgId();
+function mockProfiles(orgId) {
+    const id    = orgId || getCurrentOrgId();
     const extra = JSON.parse(localStorage.getItem(mockKey()) || '[]');
-    const seed  = orgId ? seedData.profiles.filter(p => p.organizationId === orgId) : [];
+    const seed  = id ? seedData.profiles.filter(p => p.organizationId === id) : [];
     return [...seed, ...extra];
 }
 
@@ -137,9 +137,11 @@ export class StakeholderApi extends BaseApi {
 
     // ─── Backward-compatible methods (used by existing views) ────────────────
 
-    getProfiles() {
-        if (useFakeAuth) return Promise.resolve({ status: 200, data: mockProfiles() });
-        return this.#profilesEndpoint.getAll();
+    getProfiles(organizationId) {
+        if (useFakeAuth) return Promise.resolve({ status: 200, data: mockProfiles(organizationId) });
+        return organizationId
+            ? this.http.get(`${profilesEndpointPath}?organizationId=${organizationId}`)
+            : this.#profilesEndpoint.getAll();
     }
 
     getProfileById(id) {

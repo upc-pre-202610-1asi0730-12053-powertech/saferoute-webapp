@@ -103,8 +103,9 @@ export const useStakeholderStore = defineStore('stakeholder-and-asset-management
 
     // ─── Backward-compatible methods (used by existing views) ────────────────
 
-    function fetchProfiles() {
-        api.getProfiles().then(response => {
+    function fetchProfiles(organizationId) {
+        loaded.value = false;
+        api.getProfiles(organizationId).then(response => {
             profiles.value = ProfileAssembler.toEntitiesFromResponse(response);
             loaded.value = true;
         }).catch(error => errors.value.push(error));
