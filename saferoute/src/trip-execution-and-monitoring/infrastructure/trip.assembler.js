@@ -1,7 +1,8 @@
 import {Trip} from "../domain/model/trip.entity.js";
 
 /**
- * Maps trip resources into domain entities.
+ * Maps trip resources into domain classes.
+ * Defined in trip.infrastructure (vue-saferoute-trip.puml).
  *
  * @class TripAssembler
  */

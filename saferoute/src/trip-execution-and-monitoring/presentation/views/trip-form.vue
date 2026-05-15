@@ -21,7 +21,7 @@ onMounted(() => {
       form.value.driverId = tripItem.driverId;
       form.value.status = tripItem.status;
       form.value.currentLocation = tripItem.currentLocation;
-    } else router.push({name: 'trip-trips'});
+    } else router.push({name: 'trip-execution-and-monitoring-trips'});
   }
 });
 
@@ -34,7 +34,7 @@ const saveTrip = () => {
     currentLocation: form.value.currentLocation,
   });
   if (isEdit.value) store.updateTrip(tripItem); else store.addTrip(tripItem);
-  router.push({name: 'trip-trips'});
+  router.push({name: 'trip-execution-and-monitoring-trips'});
 };
 </script>
 
@@ -59,7 +59,7 @@ const saveTrip = () => {
         <pv-input-text id="currentLocation" v-model="form.currentLocation" class="w-full" required/>
       </div>
       <pv-button label="Save" icon="pi pi-save" type="submit"/>
-      <pv-button label="Cancel" class="ml-2" severity="secondary" @click="router.push({name: 'trip-trips'})"/>
+      <pv-button label="Cancel" class="ml-2" severity="secondary" @click="router.push({name: 'trip-execution-and-monitoring-trips'})"/>
     </form>
     <div v-if="store.errors.length" class="text-red-500 mt-3">
       {{ store.errors.map(e => e.message).join(', ') }}

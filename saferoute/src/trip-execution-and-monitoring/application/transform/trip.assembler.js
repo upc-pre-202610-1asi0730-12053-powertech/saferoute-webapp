@@ -1,9 +1,7 @@
 import { BaseAssembler } from '../../../shared/application/transform/base.assembler';
 import { Trip } from '../../domain/model/trip.entity';
 
-/**
- * Ensamblador para convertir entre DTOs y la entidad Trip.
- */
+
 export class TripAssembler extends BaseAssembler {
   toEntity(dto) {
     return new Trip(dto.id, dto.routeId, dto.driverId, dto.status, dto.currentLocation);

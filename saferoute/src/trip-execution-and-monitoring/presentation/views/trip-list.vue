@@ -32,7 +32,7 @@ const confirmDelete = (trip) => {
 <template>
   <div class="p-4">
     <h1>Trips</h1>
-    <pv-button label="New Trip" class="mb-3" icon="pi pi-plus" @click="router.push({name: 'trip-trip-new'})"/>
+    <pv-button label="New Trip" class="mb-3" icon="pi pi-plus" @click="router.push({name: 'trip-execution-and-monitoring-trip-execution-and-monitoring-new'})"/>
     <pv-data-table
         :loading="!loaded"
         :rows="5"
@@ -48,7 +48,7 @@ const confirmDelete = (trip) => {
       <pv-column header="Location" field="currentLocation"/>
       <pv-column header="Actions">
         <template #body="slotProps">
-          <pv-button icon="pi pi-pencil" rounded text @click="router.push({name: 'trip-trip-edit', params: {id: slotProps.data.id}})"/>
+          <pv-button icon="pi pi-pencil" rounded text @click="router.push({name: 'trip-execution-and-monitoring-trip-execution-and-monitoring-edit', params: {id: slotProps.data.id}})"/>
           <pv-button icon="pi pi-trash" rounded severity="danger" text @click="confirmDelete(slotProps.data)"/>
         </template>
       </pv-column>
