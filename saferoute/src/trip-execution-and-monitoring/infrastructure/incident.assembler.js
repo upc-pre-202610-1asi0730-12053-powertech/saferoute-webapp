@@ -1,14 +1,13 @@
-import {Trip} from "../domain/model/trip.entity.js";
+import { Incident } from "../domain/model/incident.entity.js";
 
 /**
- * Maps trip resources into domain classes.
+ * Maps incident resources into domain classes.
  * Defined in trip.infrastructure (vue-saferoute-trip.puml).
- *
- * @class TripAssembler
+ * @class IncidentAssembler
  */
-export class TripAssembler {
+export class IncidentAssembler {
     static toEntityFromResource(resource) {
-        return new Trip({...resource})
+        return new Incident({ ...resource });
     }
 
     static toEntitiesFromResponse(response) {
@@ -16,7 +15,9 @@ export class TripAssembler {
             console.error(`${response.status}, ${response.statusText}`);
             return [];
         }
-        let resources = response.data instanceof Array ? response.data : response.data['trips'] || [response.data];
+        const resources = response.data instanceof Array
+            ? response.data
+            : response.data['incidents'] || [response.data];
         return resources.map(resource => this.toEntityFromResource(resource));
     }
 }
