@@ -2,7 +2,7 @@ import { BaseApi } from "../../shared/infrastructure/base-api.js";
 import { BaseEndpoint } from "../../shared/infrastructure/base-endpoint.js";
 import seedData from '../../server/db.json';
 
-const useFakeAuth = import.meta.env.VITE_USE_FAKE_AUTH === 'true';
+const useFakeAuth = String(import.meta.env.VITE_USE_FAKE_AUTH).toLowerCase() === 'true';
 const MOCK_SUBS_KEY = 'saferoute.mock.subscriptions';
 
 function mockPlans() { return seedData.plans; }
@@ -47,35 +47,33 @@ export class SubscriptionApi extends BaseApi {
     // ─── Subscriptions ───────────────────────────────────────────────────────
 
     async createSubscription(request) {
-        const newSub = { ...request, state: 'ACTIVE' };
-        try {
-            // Try to persist in json-server (real db.json)
-            // Cancel any existing active sub for this org first (best-effort)
-            const res = await this.http.get(`${subscriptionsEndpointPath}?organizationId=${request.organizationId}&state=ACTIVE`).catch(() => ({ data: [] }));
-            const active = Array.isArray(res.data) ? res.data : [];
-            await Promise.all(active.map(s =>
-                this.http.patch(`${subscriptionsEndpointPath}/${s.id}`, { state: 'CANCELLED' }).catch(() => {})
-            ));
-            const created = await this.#subscriptionsEndpoint.create(newSub);
-            return created;
-        } catch {
-            
-            const list = JSON.parse(localStorage.getItem(MOCK_SUBS_KEY) || '[]')
-                .map(s => s.organizationId === request.organizationId ? { ...s, state: 'CANCELLED' } : s);
-            const fallback = { id: `sub-${Date.now()}`, ...newSub };
-            list.push(fallback);
-            localStorage.setItem(MOCK_SUBS_KEY, JSON.stringify(list));
-            return { status: 201, data: fallback };
-        }
+        const newSub = {
+            organizationId: request.organizationId,
+            planId: request.planId,
+            startDate: request.startDate,
+            endDate: request.endDate,
+        };
+
+        if (!useFakeAuth) return this.#subscriptionsEndpoint.create(newSub);
+
+        const list = JSON.parse(localStorage.getItem(MOCK_SUBS_KEY) || '[]')
+            .map(s => s.organizationId === request.organizationId ? { ...s, state: 'CANCELLED' } : s);
+        const fallback = { id: `sub-${Date.now()}`, ...newSub, state: 'ACTIVE' };
+        list.push(fallback);
+        localStorage.setItem(MOCK_SUBS_KEY, JSON.stringify(list));
+        return { status: 201, data: fallback };
     }
 
-    getSubscriptionByOrganization(organizationId) {
-        // Try real server first, fall back to localStorage
-        return this.http.get(`${subscriptionsEndpointPath}?organizationId=${organizationId}&state=ACTIVE`)
-            .catch(() => {
-                const active = mockSubs().filter(s => s.organizationId === organizationId && s.state === 'ACTIVE');
-                return { status: 200, data: active };
-            });
+    async getSubscriptionByOrganization(organizationId) {
+        if (useFakeAuth) {
+            const active = mockSubs().filter(s => s.organizationId === organizationId && s.state === 'ACTIVE');
+            return { status: 200, data: active };
+        }
+        const response = await this.http.get(`${subscriptionsEndpointPath}?organizationId=${organizationId}`);
+        return {
+            ...response,
+            data: (response.data || []).filter(subscription => subscription.state === 'ACTIVE'),
+        };
     }
 
     upgradeSubscription(id, planId) {
@@ -89,7 +87,7 @@ export class SubscriptionApi extends BaseApi {
                 return Promise.resolve({ status: 200, data: list[idx] });
             }
         }
-        return this.http.patch(`${subscriptionsEndpointPath}/${id}`, { planId });
+        return this.http.put(`${subscriptionsEndpointPath}/${id}/plan`, { planId });
     }
 
     cancelSubscription(id) {
@@ -103,6 +101,6 @@ export class SubscriptionApi extends BaseApi {
                 return Promise.resolve({ status: 200, data: list[idx] });
             }
         }
-        return this.http.patch(`${subscriptionsEndpointPath}/${id}`, { state: 'CANCELLED' });
+        return this.http.post(`${subscriptionsEndpointPath}/${id}/cancel`);
     }
 }

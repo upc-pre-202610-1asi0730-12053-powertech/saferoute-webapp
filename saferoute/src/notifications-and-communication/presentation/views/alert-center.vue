@@ -1,32 +1,24 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useIamStore } from '../../../identity-and-access-management/application/iam.store.js';
-import seedData from '../../../server/db.json';
+import { NotificationsApi } from '../../infrastructure/notification-api.js';
+import { TripApi } from '../../../trip-execution-and-monitoring/infrastructure/trip-api.js';
+import { StakeholderApi } from '../../../stakeholder-and-asset-management/infrastructure/stakeholder-api.js';
 
 const iamStore = useIamStore();
 const user     = iamStore.currentUser;
 const isAdmin  = iamStore.isAdmin;
 const orgId    = user?.organizationId || null;
+const notificationsApi = new NotificationsApi();
+const tripApi = new TripApi();
+const stakeholderApi = new StakeholderApi();
 
-// ── Load seed data + localStorage extras — scoped by org ─────
-const INCIDENTS_KEY  = `saferoute.incidents.${orgId || 'default'}`;
-const NOTIFS_KEY     = `saferoute.notifications.${orgId || 'default'}`;
+// Backend state scoped by the current organization.
+const currentParentId = ref(null);
 
-function loadIncidents() {
-  const extra = JSON.parse(localStorage.getItem(INCIDENTS_KEY) || '[]');
-  const seed  = orgId ? seedData.incidents.filter(i => i.organizationId === orgId) : [];
-  return [...seed, ...extra];
-}
-function loadNotifs() {
-  const state = JSON.parse(localStorage.getItem(NOTIFS_KEY + '.state') || '{}');
-  const extra = JSON.parse(localStorage.getItem(NOTIFS_KEY + '.extra') || '[]');
-  const seed  = orgId ? seedData.notifications.filter(n => n.organizationId === orgId) : [];
-  const base  = [...seed, ...extra];
-  return base.map(n => state[n.id] ? { ...n, ...state[n.id] } : n);
-}
-
-const incidents    = ref(loadIncidents());
-const notifications = ref(loadNotifs());
+const incidents = ref([]);
+const notifications = ref([]);
+const trips = ref([]);
 
 // ── Tabs ──────────────────────────────────────────────────────
 const activeTab = ref('incidents'); // 'incidents' | 'notifications'
@@ -53,6 +45,41 @@ const TYPE_ICONS = {
   COMPORTAMIENTO: 'pi pi-user', EMERGENCIA: 'pi pi-phone', OTRO: 'pi pi-info-circle',
 };
 
+function toUiIncident(incident, trip) {
+  return {
+    ...incident,
+    id: incident.id || `${trip.id}-${incident.reportedAt || Date.now()}`,
+    tripId: trip.id,
+    routeId: trip.routeId,
+    routeName: trip.routeName || `Ruta ${trip.routeId}`,
+    type: incident.type || 'OTRO',
+    severity: incident.severity || 'LOW',
+    timestamp: incident.timestamp || incident.reportedAt || new Date().toISOString(),
+    status: incident.status || 'OPEN',
+    organizationId: trip.organizationId || orgId,
+  };
+}
+
+async function loadAlertData() {
+  if (!orgId) return;
+  try {
+    const [tripsRes, notificationsRes, parentsRes] = await Promise.all([
+      tripApi.getTrips(orgId),
+      notificationsApi.getMessages(orgId),
+      stakeholderApi.getParentsByOrganization(orgId),
+    ]);
+
+    const parents = parentsRes.data || [];
+    const parent = parents.find(p => p.userId === user?.id || p.email === user?.email);
+    currentParentId.value = parent?.id || null;
+    trips.value = tripsRes.data || [];
+    incidents.value = trips.value.flatMap(trip => (trip.incidents || []).map(incident => toUiIncident(incident, trip)));
+    notifications.value = notificationsRes.data || [];
+  } catch (error) {
+    console.warn('Alert center data could not be loaded from backend:', error);
+  }
+}
+
 const filteredIncidents = computed(() => {
   let list = incidents.value;
   if (filterStatus.value   !== 'ALL') list = list.filter(i => i.status   === filterStatus.value);
@@ -65,9 +92,12 @@ const filteredIncidents = computed(() => {
 const NOTIF_ICONS = {
   ABORDAJE: 'pi pi-check-circle', PROXIMIDAD: 'pi pi-map-marker',
   AUSENCIA: 'pi pi-times-circle', LLEGADA: 'pi pi-flag', RETRASO: 'pi pi-clock',
+  BOARDING: 'pi pi-check-circle', INCIDENT: 'pi pi-exclamation-triangle',
+  ARRIVAL: 'pi pi-flag', ANNOUNCEMENT: 'pi pi-megaphone',
 };
 const NOTIF_SEVERITY = {
   ABORDAJE: '#22c55e', PROXIMIDAD: '#f59e0b', AUSENCIA: '#ef4444', LLEGADA: '#6366f1', RETRASO: '#f97316',
+  BOARDING: '#22c55e', INCIDENT: '#ef4444', ARRIVAL: '#6366f1', ANNOUNCEMENT: '#0ea5e9',
 };
 const NOTIF_TITLES = {
   ABORDAJE:   'Abordaje confirmado',
@@ -75,38 +105,30 @@ const NOTIF_TITLES = {
   AUSENCIA:   'Alumno ausente',
   LLEGADA:    'Bus llegó a destino',
   RETRASO:    'Retraso en ruta',
+  BOARDING:   'Abordaje confirmado',
+  INCIDENT:   'Incidencia reportada',
+  ARRIVAL:    'Llegada registrada',
+  ANNOUNCEMENT: 'Comunicado',
 };
 function notifTitle(type) { return NOTIF_TITLES[type] || 'Notificación'; }
 
 const visibleNotifs = computed(() =>
   [...notifications.value]
-    .filter(n => isAdmin || n.parentId === null || n.parentId === userParentId.value)
+    .filter(n => isAdmin || n.parentId === null || n.parentId === currentParentId.value)
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
 );
-
-const userParentId = computed(() => {
-  const p = seedData.parents?.find(p => p.email === user?.email);
-  return p?.id || null;
-});
 
 const unreadCount = computed(() => visibleNotifs.value.filter(n => !n.read).length);
 
 function markRead(n) {
   const idx = notifications.value.findIndex(x => x.id === n.id);
   if (idx !== -1) notifications.value[idx] = { ...notifications.value[idx], read: true };
-  // persist state
-  const state = JSON.parse(localStorage.getItem(NOTIFS_KEY + '.state') || '{}');
-  state[n.id] = { read: true };
-  localStorage.setItem(NOTIFS_KEY + '.state', JSON.stringify(state));
 }
 function markAllRead() {
-  const state = JSON.parse(localStorage.getItem(NOTIFS_KEY + '.state') || '{}');
   visibleNotifs.value.forEach(n => {
     const idx = notifications.value.findIndex(x => x.id === n.id);
     if (idx !== -1) notifications.value[idx] = { ...notifications.value[idx], read: true };
-    state[n.id] = { read: true };
   });
-  localStorage.setItem(NOTIFS_KEY + '.state', JSON.stringify(state));
 }
 
 // ── New incident form ─────────────────────────────────────────
@@ -116,35 +138,23 @@ const emptyForm = () => ({
 });
 const form = ref(emptyForm());
 
-const trips = computed(() => {
-  const extra = JSON.parse(localStorage.getItem(`saferoute.mock.trips.extra.${orgId || 'default'}`) || '[]');
-  const seed  = orgId ? seedData.trips.filter(t => t.organizationId === orgId) : [];
-  return [...seed, ...extra];
-});
-
 function openNew() { form.value = emptyForm(); newDialog.value = true; }
 
-function saveIncident() {
-  if (!form.value.description) return;
+async function saveIncident() {
+  if (!form.value.description || !form.value.tripId) return;
   const trip = trips.value.find(t => t.id === form.value.tripId);
-  const incident = {
-    id:          `i-${Date.now()}`,
-    tripId:      form.value.tripId,
-    routeId:     trip?.routeId || null,
-    routeName:   trip?.routeName || form.value.routeName,
-    type:        form.value.type,
-    severity:    form.value.severity,
-    description: form.value.description,
-    reportedBy:  user?.id || 'UNKNOWN',
-    timestamp:   new Date().toISOString(),
-    status:      'OPEN',
-    organizationId: orgId,
-  };
-  incidents.value.unshift(incident);
-  const extra = JSON.parse(localStorage.getItem(INCIDENTS_KEY) || '[]');
-  extra.push(incident);
-  localStorage.setItem(INCIDENTS_KEY, JSON.stringify(extra));
-  newDialog.value = false;
+  try {
+    const response = await tripApi.reportIncident(form.value.tripId, {
+      description: `[${form.value.type}/${form.value.severity}] ${form.value.description}`,
+      type: form.value.type,
+      severity: form.value.severity,
+      reportedBy: user?.id || 'UNKNOWN',
+    });
+    incidents.value.unshift(toUiIncident(response.data, trip || { id: form.value.tripId, organizationId: orgId }));
+    newDialog.value = false;
+  } catch (error) {
+    console.warn('Incident could not be reported:', error);
+  }
 }
 
 function resolveIncident(inc) {
@@ -155,6 +165,8 @@ function resolveIncident(inc) {
 function fmt(ts) {
   return new Date(ts).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
 }
+
+onMounted(loadAlertData);
 </script>
 
 <template>
@@ -262,7 +274,7 @@ function fmt(ts) {
     <pv-dialog v-model:visible="newDialog" header="Reportar Incidencia" modal style="width: 480px">
       <div class="form-grid">
         <div class="field">
-          <label>Viaje (opcional)</label>
+          <label>Viaje *</label>
           <pv-select
             v-model="form.tripId"
             :options="trips"
@@ -287,7 +299,7 @@ function fmt(ts) {
       </div>
       <template #footer>
         <pv-button label="Cancelar" text @click="newDialog = false"/>
-        <pv-button label="Reportar" icon="pi pi-send" :disabled="!form.description" @click="saveIncident"/>
+        <pv-button label="Reportar" icon="pi pi-send" :disabled="!form.description || !form.tripId" @click="saveIncident"/>
       </template>
     </pv-dialog>
   </div>

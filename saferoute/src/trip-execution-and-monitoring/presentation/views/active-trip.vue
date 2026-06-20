@@ -12,7 +12,6 @@ import { TripApi }  from '../../infrastructure/trip-api.js';
 import { RouteApi } from '../../../fleet-and-route-planning/infrastructure/route-api.js';
 import { useIamStore } from '../../../identity-and-access-management/application/iam.store.js';
 import { fetchRoadRoute } from '../../../shared/infrastructure/ors.js';
-import seedData from '../../../server/db.json';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow });
@@ -28,6 +27,9 @@ const iamStore = useIamStore();
 // ── State ──────────────────────────────────────────────────────────────────
 const allTrips      = ref([]);
 const routeCache    = ref({});   // { [routeId]: routeObject }
+const drivers       = ref([]);
+const routeChildren = ref([]);
+const currentDriverId = ref(null);
 const tripData      = ref(null);
 const routeData     = ref(null);
 const loading       = ref(true);
@@ -393,15 +395,16 @@ async function startTrip() {
     startTime:   new Date().toISOString(),
     currentStop: waypoints.value[0]?.name || null,
   };
-  await tripApi.updateTrip(updated);
+  const response = await tripApi.updateTrip(updated);
+  const persisted = enrichTrip(response.data || updated);
   // also update in the list
-  const idx = allTrips.value.findIndex(t => t.id === updated.id);
-  if (idx !== -1) allTrips.value[idx] = updated;
-  tripData.value     = updated;
+  const idx = allTrips.value.findIndex(t => t.id === persisted.id);
+  if (idx !== -1) allTrips.value[idx] = persisted;
+  tripData.value     = persisted;
   currentWpIdx.value = 0;
   placeBusAt(waypoints.value[0]);
   refreshStopColors();
-  toast.add({ severity: 'info', summary: 'Viaje iniciado', detail: `Ruta: ${updated.routeName}`, life: 3000 });
+  toast.add({ severity: 'info', summary: 'Viaje iniciado', detail: `Ruta: ${persisted.routeName}`, life: 3000 });
 }
 
 function finishTrip() {
@@ -429,11 +432,12 @@ function finishTrip() {
         currentStop:     null,
         currentLocation: wps[lastIdx]?.name || tripData.value.currentLocation,
       };
-      await tripApi.updateTrip(updated);
+      const response = await tripApi.updateTrip(updated);
+      const persisted = enrichTrip(response.data || updated);
       // sync list
-      const idx = allTrips.value.findIndex(t => t.id === updated.id);
-      if (idx !== -1) allTrips.value[idx] = updated;
-      tripData.value     = updated;
+      const idx = allTrips.value.findIndex(t => t.id === persisted.id);
+      if (idx !== -1) allTrips.value[idx] = persisted;
+      tripData.value     = persisted;
       currentWpIdx.value = lastIdx;
       if (lastIdx >= 0) placeBusAt(wps[lastIdx]);
       refreshStopColors();
@@ -509,27 +513,18 @@ function callEmergency() {
   emergencyDialog.value = false;
 }
 
-function submitEmergencyReport() {
-  if (!emergencyForm.value.description) return;
-  const inc = {
-    id:             `i-${Date.now()}`,
-    tripId:         tripData.value?.id || null,
-    routeId:        tripData.value?.routeId || null,
-    routeName:      tripData.value?.routeName || '',
-    type:           emergencyForm.value.type,
-    severity:       'HIGH',
-    description:    emergencyForm.value.description,
-    reportedBy:     iamStore.currentUser?.id || 'DRIVER',
-    timestamp:      new Date().toISOString(),
-    status:         'OPEN',
-    organizationId: 'org-1',
-  };
-  const key   = 'saferoute.incidents';
-  const extra = JSON.parse(localStorage.getItem(key) || '[]');
-  extra.push(inc);
-  localStorage.setItem(key, JSON.stringify(extra));
-  emergencyDialog.value = false;
-  toast.add({ severity: 'warn', summary: 'Incidencia reportada', detail: 'Registrada y notificada al administrador.', life: 4000 });
+async function submitEmergencyReport() {
+  if (!emergencyForm.value.description || !tripData.value?.id) return;
+  try {
+    await tripApi.reportIncident(tripData.value.id, {
+      description: `[${emergencyForm.value.type}] ${emergencyForm.value.description}`,
+    });
+    emergencyDialog.value = false;
+    toast.add({ severity: 'warn', summary: 'Incidencia reportada', detail: 'Registrada y notificada al administrador.', life: 4000 });
+  } catch (error) {
+    console.warn('Emergency report could not be persisted:', error);
+    toast.add({ severity: 'error', summary: 'No se pudo reportar', detail: 'El backend no aceptó la incidencia para este viaje.', life: 4000 });
+  }
 }
 
 // ── US17 — Pre-trip Security Checklist ────────────────────────────────────
@@ -581,31 +576,20 @@ function sosEnd() {
     toast.add({ severity: 'info', summary: 'Cancelado', detail: 'Mantén 3 segundos para activar el SOS.', life: 2000 });
   }
 }
-function triggerSOS() {
+async function triggerSOS() {
   clearInterval(sosProgressTimer);
   sosHolding.value  = false;
   sosProgress.value = 100;
   sosActive.value   = true;
   const wp  = waypoints.value[Math.max(0, currentWpIdx.value)];
-  const inc = {
-    id:             `i-sos-${Date.now()}`,
-    tripId:         tripData.value?.id || null,
-    routeId:        tripData.value?.routeId || null,
-    routeName:      tripData.value?.routeName || '',
-    type:           'EMERGENCIA',
-    severity:       'HIGH',
-    description:    `🚨 SOS activado por ${iamStore.currentUser?.firstName || 'Conductor'}. Ubicación: ${wp?.name || tripData.value?.currentStop || 'En ruta'}. Coord: ${wp?.lat ?? '—'}, ${wp?.lng ?? '—'}`,
-    reportedBy:     iamStore.currentUser?.id || 'DRIVER',
-    timestamp:      new Date().toISOString(),
-    status:         'OPEN',
-    organizationId: iamStore.currentUser?.organizationId || 'org-1',
-  };
-  const orgId = iamStore.currentUser?.organizationId || 'default';
-  const key   = `saferoute.incidents.${orgId}`;
-  const extra = JSON.parse(localStorage.getItem(key) || '[]');
-  extra.push(inc);
-  localStorage.setItem(key, JSON.stringify(extra));
-  toast.add({ severity: 'error', summary: '🚨 SOS ACTIVADO', detail: 'Alerta enviada con coordenadas GPS. Central notificada.', life: 10000 });
+  const description = `SOS activado por ${iamStore.currentUser?.firstName || 'Conductor'}. Ubicacion: ${wp?.name || tripData.value?.currentStop || 'En ruta'}. Coord: ${wp?.lat ?? '-'}, ${wp?.lng ?? '-'}`;
+  try {
+    if (tripData.value?.id) await tripApi.reportIncident(tripData.value.id, { description });
+    toast.add({ severity: 'error', summary: 'SOS ACTIVADO', detail: 'Alerta enviada con coordenadas GPS. Central notificada.', life: 10000 });
+  } catch (error) {
+    console.warn('SOS report could not be persisted:', error);
+    toast.add({ severity: 'error', summary: 'SOS local activado', detail: 'No se pudo registrar la alerta en backend.', life: 8000 });
+  }
 }
 function cancelSOS() {
   sosActive.value   = false;
@@ -628,20 +612,26 @@ const boardingState = ref({});  // { [childId]: 'ABORDADO' | 'AUSENTE' }
 
 const boardingStudents = computed(() => {
   if (!tripData.value?.studentIds) return [];
-  const orgId = iamStore.currentUser?.organizationId || null;
-  const extra = JSON.parse(localStorage.getItem(`saferoute.mock.children.${orgId || 'default'}`) || 'null');
-  const allChildren = extra || (orgId ? seedData.children.filter(c => c.organizationId === orgId) : []);
-  return allChildren
+  return routeChildren.value
     .filter(c => tripData.value.studentIds.includes(c.id))
-    .map(c => ({ ...c, boardingMark: boardingState.value[c.id] ?? null }));
+    .map(c => ({
+      ...c,
+      name: c.fullName || `${c.firstName || ''} ${c.lastName || ''}`.trim(),
+      grade: c.grade || c.age || '',
+      boardingMark: boardingState.value[c.id] ?? null,
+    }));
 });
 
-function markBoarding(childId, status) {
+async function markBoarding(childId, status) {
   boardingState.value = { ...boardingState.value, [childId]: status };
   const boarded = Object.values(boardingState.value).filter(s => s === 'ABORDADO').length;
   if (tripData.value) {
     tripData.value = { ...tripData.value, studentsBoarded: boarded };
-    tripApi.updateTrip(tripData.value);
+    try {
+      await tripApi.updateBoardingStatus(tripData.value.id, { childId, boardingState: status });
+    } catch (error) {
+      console.warn('Boarding status could not be persisted:', error);
+    }
   }
   const label = status === 'ABORDADO' ? 'abordado' : 'ausente';
   const child = boardingStudents.value.find(c => c.id === childId);
@@ -723,22 +713,50 @@ function onQrSuccess(decodedText) {
 }
 
 // ── Load all data ──────────────────────────────────────────────────────────
+function personName(person) {
+  return person?.fullName || `${person?.firstName || ''} ${person?.lastName || ''}`.trim();
+}
+
+function enrichTrip(trip) {
+  const route = routeCache.value[trip.routeId] || {};
+  const driverId = trip.driverId || route.driverId;
+  const driver = drivers.value.find(d => String(d.id) === String(driverId));
+  const studentIds = trip.studentIds?.length ? trip.studentIds : route.studentIds || [];
+
+  return {
+    ...trip,
+    driverId,
+    routeName: trip.routeName || route.name || '',
+    driverName: trip.driverName || personName(driver) || route.driverName || '',
+    vehicleId: trip.vehicleId || route.vehicleId || null,
+    vehiclePlate: trip.vehiclePlate || route.vehiclePlate || '',
+    studentIds,
+    studentsTotal: trip.studentsTotal || studentIds.length,
+    scheduledStartTime: trip.scheduledStartTime || route.scheduledStartTime || route.departureTime || '',
+    tripType: trip.tripType || route.type || '',
+  };
+}
+
 async function loadData() {
   loading.value = true;
   const orgId = iamStore.currentUser?.organizationId;
-  const [tripsRes, routesRes] = await Promise.all([
+  const [tripsRes, routesRes, driversRes, childrenRes] = await Promise.all([
     tripApi.getTrips(orgId),
     routeApi.getRoutes(orgId),
+    routeApi.getDriversByOrganization(orgId),
+    routeApi.getChildrenByOrganization(orgId),
   ]);
-  const allFetched = tripsRes.data || [];
-  const isDriver   = iamStore.currentUser?.roleTier === 'DRIVER';
-  const myId       = iamStore.currentUser?.id;
-  // DRIVER only sees their own trips; ADMIN/others see all.
-  allTrips.value = isDriver
-    ? allFetched.filter(t => t.driverId === myId)
-    : allFetched;
   routeCache.value = {};
   (routesRes.data || []).forEach(r => { routeCache.value[r.id] = r; });
+  drivers.value = driversRes.data || [];
+  routeChildren.value = childrenRes.data || [];
+  currentDriverId.value = drivers.value.find(d => d.userId === iamStore.currentUser?.id || d.email === iamStore.currentUser?.email)?.id || null;
+
+  const allFetched = (tripsRes.data || []).map(enrichTrip);
+  const isDriver   = iamStore.currentUser?.roleTier === 'DRIVER';
+  allTrips.value = isDriver && currentDriverId.value
+    ? allFetched.filter(t => String(t.driverId) === String(currentDriverId.value))
+    : allFetched;
   loading.value = false;
 }
 
@@ -757,11 +775,11 @@ onMounted(async () => {
   initMap();
 
   // Auto-select: prefer EN_ROUTE → SCHEDULED → first
-  const driverId = iamStore.currentUser?.id;
+  const driverId = currentDriverId.value;
   const auto =
-    allTrips.value.find(t => t.driverId === driverId && t.status === 'EN_ROUTE') ||
-    allTrips.value.find(t => t.driverId === driverId && t.status === 'SCHEDULED') ||
-    allTrips.value.find(t => t.driverId === driverId) ||
+    allTrips.value.find(t => String(t.driverId) === String(driverId) && t.status === 'EN_ROUTE') ||
+    allTrips.value.find(t => String(t.driverId) === String(driverId) && t.status === 'SCHEDULED') ||
+    allTrips.value.find(t => String(t.driverId) === String(driverId)) ||
     allTrips.value[0] || null;
 
   if (auto) await selectTrip(auto);

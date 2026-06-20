@@ -1,14 +1,27 @@
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useIamStore } from "../../../identity-and-access-management/application/iam.store.js";
-import seedData from "../../../server/db.json";
+import { IamApi } from "../../../identity-and-access-management/infrastructure/iam-api.js";
+import { RouteApi } from "../../../fleet-and-route-planning/infrastructure/route-api.js";
+import { TripApi } from "../../../trip-execution-and-monitoring/infrastructure/trip-api.js";
+import { StakeholderApi } from "../../../stakeholder-and-asset-management/infrastructure/stakeholder-api.js";
 
 const { t } = useI18n();
 const router = useRouter();
 const store = useIamStore();
 const user = store.currentUser;
+const iamApi = new IamApi();
+const routeApi = new RouteApi();
+const tripApi = new TripApi();
+const stakeholderApi = new StakeholderApi();
+
+const routes = ref([]);
+const trips = ref([]);
+const users = ref([]);
+const parents = ref([]);
+const drivers = ref([]);
 
 const roleIcon = computed(() => {
   switch (user?.roleTier) {
@@ -22,57 +35,82 @@ const roleIcon = computed(() => {
 const roleLabel = computed(() => t(`home.role.${user?.roleTier?.toLowerCase() || 'guest'}`));
 
 // ── Metrics ───────────────────────────────────────────────────
-function getMockTrips() {
-  const orgId    = user?.organizationId;
-  const extraKey = `saferoute.mock.trips.extra.${orgId || 'default'}`;
-  const stateKey = `saferoute.mock.trips.state.${orgId || 'default'}`;
-  const extra    = JSON.parse(localStorage.getItem(extraKey) || '[]');
-  const state    = JSON.parse(localStorage.getItem(stateKey) || '{}');
-  const seed     = orgId ? seedData.trips.filter(t => t.organizationId === orgId) : [];
-  const base     = [...seed, ...extra];
-  return base.map(tr => state[tr.id] ? { ...tr, ...state[tr.id] } : tr);
+const currentDriverId = computed(() =>
+  drivers.value.find(d => d.userId === user?.id || d.email === user?.email)?.id || null
+);
+
+const currentParent = computed(() =>
+  parents.value.find(p => p.userId === user?.id || p.email === user?.email) || null
+);
+
+const parentChildren = computed(() =>
+  (currentParent.value?.children || []).map(child => ({
+    ...child,
+    parentId: currentParent.value.id,
+    organizationId: currentParent.value.organizationId,
+  }))
+);
+
+async function loadDashboardData() {
+  const orgId = user?.organizationId;
+  if (!orgId) return;
+
+  try {
+    const [routesRes, tripsRes, parentsRes, driversRes, usersRes] = await Promise.all([
+      routeApi.getRoutes(orgId),
+      tripApi.getTrips(orgId),
+      stakeholderApi.getParentsByOrganization(orgId),
+      stakeholderApi.getDriversByOrganization(orgId),
+      iamApi.getUsers(),
+    ]);
+    routes.value = routesRes.data || [];
+    trips.value = tripsRes.data || [];
+    parents.value = parentsRes.data || [];
+    drivers.value = driversRes.data || [];
+    users.value = (usersRes.data || []).filter(u => !orgId || u.organizationId === orgId);
+  } catch (error) {
+    console.warn('Dashboard data could not be loaded from backend:', error);
+  }
 }
 
 const metrics = computed(() => {
-  const trips   = getMockTrips();
   const role    = user?.roleTier;
-  const myId    = user?.id;
-
-  const orgId = user?.organizationId;
 
   if (role === 'DRIVER') {
-    const myRoutes = trips.filter(tr => tr.driverId === myId); // use trips which are already org-scoped
-    const myTrips  = trips.filter(tr => tr.driverId === myId);
+    const driverId = currentDriverId.value;
+    const myRoutes = routes.value.filter(route => route.driverId === driverId);
+    const myTrips  = trips.value.filter(tr => tr.driverId === driverId);
     return [
-      { icon: 'pi pi-map-marker', value: [...new Set(myRoutes.map(t => t.routeId))].length,    label: 'My Routes' },
+      { icon: 'pi pi-map-marker', value: myRoutes.length,    label: 'My Routes' },
       { icon: 'pi pi-car',        value: myTrips.filter(tr => tr.status === 'EN_ROUTE').length, label: 'Trips Active' },
       { icon: 'pi pi-users',      value: [...new Set(myTrips.flatMap(t => t.studentIds || []))].length, label: 'Students Served' },
     ];
   }
 
   if (role === 'PARENT') {
-    const parents  = (seedData.parents  || []).filter(p => !orgId || p.organizationId === orgId);
-    const children = (seedData.children || []).filter(c => !orgId || c.organizationId === orgId);
-    const myParent = parents.find(p => p.email === user?.email);
-    const myKids   = myParent ? children.filter(c => c.parentId === myParent.id) : [];
-    const kidIds   = myKids.map(c => c.id);
-    const liveTrips = trips.filter(tr => tr.status === 'EN_ROUTE' && kidIds.some(id => (tr.studentIds || []).includes(id)));
+    const kidIds   = parentChildren.value.map(c => c.id);
+    const parentTrips = trips.value.filter(tr => kidIds.some(id => (tr.studentIds || []).includes(id)));
+    const liveTrips = parentTrips.filter(tr => tr.status === 'EN_ROUTE');
+    const assignedRouteIds = new Set([
+      ...parentTrips.map(tr => tr.routeId),
+      ...routes.value.filter(route => kidIds.some(id => (route.studentIds || []).includes(id))).map(route => route.id),
+    ].filter(Boolean));
     return [
-      { icon: 'pi pi-graduation-cap', value: myKids.length,   label: 'My Children' },
+      { icon: 'pi pi-graduation-cap', value: parentChildren.value.length,   label: 'My Children' },
       { icon: 'pi pi-car',            value: liveTrips.length, label: 'Trips Active' },
-      { icon: 'pi pi-map-marker',     value: trips.filter(r => r.studentIds?.some(id => kidIds.includes(id))).length, label: 'Routes Assigned' },
+      { icon: 'pi pi-map-marker',     value: assignedRouteIds.size, label: 'Routes Assigned' },
     ];
   }
 
-  // ADMIN — all counts are already org-scoped via getMockTrips()
-  const orgRoutes = [...new Set(trips.map(t => t.routeId))].length;
-  const orgUsers  = (seedData.users || []).filter(u => !orgId || u.organizationId === orgId).length;
+  // ADMIN counts come from organization-scoped backend responses.
   return [
-    { icon: 'pi pi-map-marker', value: orgRoutes,                                           label: 'Routes' },
-    { icon: 'pi pi-car',        value: trips.filter(tr => tr.status === 'EN_ROUTE').length, label: 'Trips in Route' },
-    { icon: 'pi pi-users',      value: orgUsers,                                             label: 'Users' },
+    { icon: 'pi pi-map-marker', value: routes.value.length, label: 'Routes' },
+    { icon: 'pi pi-car',        value: trips.value.filter(tr => tr.status === 'EN_ROUTE').length, label: 'Trips in Route' },
+    { icon: 'pi pi-users',      value: users.value.length || parents.value.length + drivers.value.length, label: 'Users' },
   ];
 });
+
+onMounted(loadDashboardData);
 </script>
 
 <template>

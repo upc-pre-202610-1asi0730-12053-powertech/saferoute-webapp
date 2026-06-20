@@ -27,14 +27,36 @@ const subscriptionStore = useSubscriptionStore();
 // Driver-scope: drivers only see their own routes; admins see all.
 const isDriver = computed(() => iamStore.currentUser?.roleTier === 'DRIVER');
 const userId   = computed(() => iamStore.currentUser?.id);
+const currentDriverId = ref(null);
 
 // ── Reference data — loaded per-org in onMounted ──────────────────────────────
 const driverOptions  = ref([]);
 const vehicleOptions = ref([]);
 const studentOptions = ref([]);
 
-function loadOrgOptions() {
+async function loadOrgOptions() {
   const orgId = iamStore.currentUser?.organizationId || null;
+
+  try {
+    const [driversRes, vehiclesRes, childrenRes] = await Promise.all([
+      api.getDriversByOrganization(orgId),
+      api.getVehiclesByOrganization(orgId),
+      api.getChildrenByOrganization(orgId),
+    ]);
+
+    driverOptions.value = (driversRes.data || [])
+        .map(p => ({ label: p.fullName || `${p.firstName} ${p.lastName}`, value: String(p.id), name: p.fullName || `${p.firstName} ${p.lastName}`, userId: p.userId, email: p.email }));
+    currentDriverId.value = driverOptions.value.find(d => d.userId === userId.value || d.email === iamStore.currentUser?.email)?.value || null;
+
+    vehicleOptions.value = (vehiclesRes.data || [])
+        .map(v => ({ label: `${v.plate} - ${v.model}`, value: String(v.id), plate: v.plate, model: v.model, capacity: v.capacity, status: v.status }));
+
+    studentOptions.value = (childrenRes.data || [])
+        .map(c => ({ label: `${c.fullName || `${c.firstName} ${c.lastName}`} (${c.age ?? '-'})`, value: String(c.id), name: c.fullName || `${c.firstName} ${c.lastName}`, grade: c.age ?? '' }));
+    return;
+  } catch (error) {
+    console.warn('Backend reference data failed, using local seed data:', error);
+  }
 
   // Drivers: seed filtered by org + localStorage extra
   const seedDrivers = orgId
@@ -43,7 +65,8 @@ function loadOrgOptions() {
   const extraDrivers = JSON.parse(localStorage.getItem(`saferoute.mock.profiles.${orgId || 'default'}`) || '[]')
       .filter(p => p.role === 'driver');
   driverOptions.value = [...seedDrivers, ...extraDrivers]
-      .map(p => ({ label: `${p.firstName} ${p.lastName}`, value: p.userId || String(p.id), name: `${p.firstName} ${p.lastName}` }));
+      .map(p => ({ label: `${p.firstName} ${p.lastName}`, value: String(p.id), name: `${p.firstName} ${p.lastName}`, userId: p.userId, email: p.email }));
+  currentDriverId.value = driverOptions.value.find(d => d.userId === userId.value || d.email === iamStore.currentUser?.email)?.value || null;
 
   // Vehicles: seed filtered by org + localStorage extra
   const seedVehicles = orgId
@@ -135,12 +158,14 @@ const completionReasons = computed(() => {
 
 // Sync driver / vehicle names when their IDs change
 watch(() => form.value.driverId, (id) => {
-  const d = driverOptions.find(o => o.value === id);
+  const d = driverOptions.value.find(o => o.value === id);
   form.value.driverName = d?.name || '';
 });
 watch(() => form.value.vehicleId, (id) => {
-  const v = vehicleOptions.find(o => o.value === id);
+  const v = vehicleOptions.value.find(o => o.value === id);
   form.value.vehiclePlate = v?.plate || '';
+  form.value.vehicleModel = v?.model || '';
+  form.value.vehicleCapacity = v?.capacity || 0;
 });
 
 /* ─────────────────────────────────────────────────────────────
@@ -372,7 +397,7 @@ async function loadRoutes() {
   const all  = res.data || [];
   // DRIVER only sees their own routes; ADMIN/others see all.
   routes.value = isDriver.value
-    ? all.filter(r => r.driverId === userId.value)
+    ? all.filter(r => r.driverId === currentDriverId.value)
     : all;
   loading.value = false;
 }
@@ -391,8 +416,8 @@ function openCreate() {
   isEdit.value     = false;
   form.value       = emptyForm();
   // Pre-fill driver if user is a driver
-  if (isDriver.value && userId.value) {
-    const me = driverOptions.find(d => d.value === userId.value);
+  if (isDriver.value && currentDriverId.value) {
+    const me = driverOptions.value.find(d => d.value === currentDriverId.value);
     if (me) {
       form.value.driverId   = me.value;
       form.value.driverName = me.name;
@@ -495,6 +520,7 @@ function routeCompleteStatus(route) {
 }
 
 onMounted(async () => {
+  await loadOrgOptions();
   await loadRoutes();
   await nextTick();
   initPreviewMap();

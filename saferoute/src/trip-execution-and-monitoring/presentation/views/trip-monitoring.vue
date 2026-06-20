@@ -21,6 +21,7 @@ const iamStore = useIamStore();
 
 const trips      = ref([]);
 const routes     = ref([]);
+const drivers    = ref([]);
 const selected   = ref(null);
 const loading    = ref(false);
 const orsLoading = ref(false);
@@ -126,15 +127,39 @@ async function showTripOnMap(trip) {
   }
 }
 
+function personName(person) {
+  return person?.fullName || `${person?.firstName || ''} ${person?.lastName || ''}`.trim();
+}
+
+function enrichTrip(trip) {
+  const route = routes.value.find(r => r.id === trip.routeId) || {};
+  const driverId = trip.driverId || route.driverId;
+  const driver = drivers.value.find(d => String(d.id) === String(driverId));
+  const studentIds = trip.studentIds?.length ? trip.studentIds : route.studentIds || [];
+  return {
+    ...trip,
+    driverId,
+    routeName: trip.routeName || route.name || '',
+    driverName: trip.driverName || personName(driver) || route.driverName || '',
+    vehiclePlate: trip.vehiclePlate || route.vehiclePlate || '',
+    studentIds,
+    studentsTotal: trip.studentsTotal || studentIds.length,
+    scheduledStartTime: trip.scheduledStartTime || route.scheduledStartTime || route.departureTime || '',
+    tripType: trip.tripType || route.type || '',
+  };
+}
+
 async function loadData() {
   loading.value = true;
   const orgId = iamStore.currentUser?.organizationId;
-  const [tripsRes, routesRes] = await Promise.all([
+  const [tripsRes, routesRes, driversRes] = await Promise.all([
     tripApi.getTrips(orgId),
     routeApi.getRoutes(orgId),
+    routeApi.getDriversByOrganization(orgId),
   ]);
-  trips.value  = tripsRes.data  || [];
   routes.value = routesRes.data || [];
+  drivers.value = driversRes.data || [];
+  trips.value  = (tripsRes.data  || []).map(enrichTrip);
   loading.value = false;
 }
 

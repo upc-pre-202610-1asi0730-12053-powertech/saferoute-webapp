@@ -4,7 +4,8 @@ import {useRouter} from "vue-router";
 import {useConfirm} from "primevue";
 import {useTripStore} from "../../application/trip.store.js";
 import {useIamStore} from "../../../identity-and-access-management/application/iam.store.js";
-import {onMounted, toRefs} from "vue";
+import {computed, onMounted, ref, toRefs} from "vue";
+import {RouteApi} from "../../../fleet-and-route-planning/infrastructure/route-api.js";
 
 const {t} = useI18n();
 const router = useRouter();
@@ -12,9 +13,22 @@ const confirm = useConfirm();
 const store = useTripStore();
 const iamStore = useIamStore();
 const {trips, errors, loaded} = toRefs(store);
+const routeApi = new RouteApi();
+const currentDriverId = ref(null);
 
-onMounted(() => {
-  store.fetchTrips(iamStore.currentUser?.organizationId);
+const visibleTrips = computed(() => {
+  if (iamStore.currentUser?.roleTier !== 'DRIVER' || !currentDriverId.value) return trips.value;
+  return trips.value.filter(trip => String(trip.driverId) === String(currentDriverId.value));
+});
+
+onMounted(async () => {
+  const orgId = iamStore.currentUser?.organizationId;
+  if (iamStore.currentUser?.roleTier === 'DRIVER') {
+    const driversRes = await routeApi.getDriversByOrganization(orgId);
+    currentDriverId.value = (driversRes.data || [])
+        .find(driver => driver.userId === iamStore.currentUser?.id || driver.email === iamStore.currentUser?.email)?.id || null;
+  }
+  store.fetchTrips(orgId);
 });
 
 const confirmDelete = (trip) => {
@@ -37,7 +51,7 @@ const confirmDelete = (trip) => {
         :loading="!loaded"
         :rows="5"
         :rows-per-page-options="[5, 10, 20]"
-        :value="trips"
+        :value="visibleTrips"
         paginator
         striped-rows
         table-style="min-width: 50rem">

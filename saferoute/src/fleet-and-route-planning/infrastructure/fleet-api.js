@@ -4,19 +4,18 @@ import seedData from '../../server/db.json';
 
 const routeEndpointPath   = import.meta.env.VITE_ROUTE_ENDPOINT_PATH    || '/routes';
 const vehicleEndpointPath = import.meta.env.VITE_VEHICLE_ENDPOINT_PATH  || '/vehicles';
-const stopEndpointPath    = import.meta.env.VITE_STOP_ENDPOINT_PATH     || '/stops';
 const useFakeAuth         = String(import.meta.env.VITE_USE_FAKE_AUTH).toLowerCase() === 'true';
+const defaultServiceDays  = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
 
-/** Returns the current user's organizationId from localStorage session */
 function getCurrentOrgId() {
     try { return JSON.parse(localStorage.getItem('saferoute.user') || '{}').organizationId || null; }
     catch { return null; }
 }
 
-/** Scoped localStorage key — each org gets its own namespace */
 function mockRouteKey() { return `saferoute.mock.routes.${getCurrentOrgId() || 'default'}`; }
 function mockVehicleKey() { return `saferoute.mock.vehicles.${getCurrentOrgId() || 'default'}`; }
 function mockAssignmentKey() { return `saferoute.mock.assignments.${getCurrentOrgId() || 'default'}`; }
+function routeUiStateKey() { return `saferoute.routes.ui.${getCurrentOrgId() || 'default'}`; }
 
 function mockRoutes(orgId) {
     const id    = orgId || getCurrentOrgId();
@@ -57,13 +56,84 @@ function saveMockAssignment(assignment) {
     return assignment;
 }
 
-/**
- * Infrastructure gateway for the Fleet bounded context.
- * Matches FleetApi in vue-saferoute-fleet.puml.
- *
- * @class FleetApi
- * @extends BaseApi
- */
+function readRouteUiState() {
+    try { return JSON.parse(localStorage.getItem(routeUiStateKey()) || '{}'); }
+    catch { return {}; }
+}
+
+function saveRouteUiState(routeId, resource) {
+    if (!routeId || !resource) return;
+    const state = readRouteUiState();
+    state[routeId] = {
+        type: resource.type,
+        origin: resource.origin,
+        destination: resource.destination,
+        driverName: resource.driverName,
+        vehicleId: resource.vehicleId,
+        vehiclePlate: resource.vehiclePlate,
+        scheduledStartTime: resource.scheduledStartTime || resource.departureTime,
+        status: resource.status,
+        waypoints: resource.waypoints || [],
+        studentIds: resource.studentIds || [],
+    };
+    localStorage.setItem(routeUiStateKey(), JSON.stringify(state));
+}
+
+function toUiRoute(resource, fallback = {}) {
+    const cached = readRouteUiState()[resource?.id] || {};
+    const assignment = resource?.assignment || {};
+    const vehicle = resource?.vehicle || {};
+    const stops = resource?.stops || [];
+    const cachedWaypoints = cached.waypoints || fallback.waypoints || [];
+    const waypoints = stops.length
+        ? stops.map((stop, index) => ({
+            id: stop.id,
+            name: stop.name,
+            lat: stop.latitude,
+            lng: stop.longitude,
+            order: stop.order ?? index + 1,
+            studentIds: cachedWaypoints[index]?.studentIds || [],
+        }))
+        : cachedWaypoints;
+    const childIds = assignment.childIds || cached.studentIds || fallback.studentIds || [];
+
+    return {
+        ...fallback,
+        ...resource,
+        id: resource?.id ?? fallback.id,
+        organizationId: resource?.organizationId ?? fallback.organizationId,
+        name: resource?.name ?? fallback.name,
+        routeState: resource?.routeState || resource?.state || fallback.routeState || fallback.status,
+        status: cached.status || fallback.status || resource?.state || resource?.routeState,
+        departureTime: resource?.departureTime || cached.scheduledStartTime || fallback.departureTime,
+        scheduledStartTime: cached.scheduledStartTime || fallback.scheduledStartTime || resource?.departureTime,
+        serviceDays: resource?.serviceDays || fallback.serviceDays || defaultServiceDays,
+        vehicleId: cached.vehicleId || fallback.vehicleId || vehicle.id || null,
+        vehiclePlate: cached.vehiclePlate || fallback.vehiclePlate || vehicle.plate || '',
+        driverId: assignment.driverId || fallback.driverId || null,
+        driverName: cached.driverName || fallback.driverName || '',
+        studentIds: childIds,
+        type: cached.type || fallback.type || '',
+        origin: cached.origin || fallback.origin || waypoints[0]?.name || '',
+        destination: cached.destination || fallback.destination || waypoints[waypoints.length - 1]?.name || '',
+        waypoints,
+        stops: waypoints.length,
+    };
+}
+
+function toWaypointPayload(waypoint) {
+    return {
+        name: waypoint.name,
+        latitude: waypoint.latitude ?? waypoint.lat,
+        longitude: waypoint.longitude ?? waypoint.lng,
+    };
+}
+
+async function ignoreNotSupported(promise, fallback) {
+    try { return await promise; }
+    catch { return fallback; }
+}
+
 export class FleetApi extends BaseApi {
     #routesEndpoint;
     #vehiclesEndpoint;
@@ -74,40 +144,98 @@ export class FleetApi extends BaseApi {
         this.#vehiclesEndpoint = new BaseEndpoint(this, vehicleEndpointPath);
     }
 
-    // ─── Route methods (diagram) ─────────────────────────────────────────────
-
-    createRoute(resource) {
+    async createRoute(resource) {
         if (useFakeAuth) {
             const newRoute = { ...resource, id: Date.now() };
             saveMockRoute(newRoute);
             return Promise.resolve({ status: 201, data: newRoute });
         }
-        return this.#routesEndpoint.create(resource);
-    }
 
-    getRoutesByOrganization(organizationId) {
-        if (useFakeAuth) return Promise.resolve({ status: 200, data: mockRoutes() });
-        return this.http.get(`${routeEndpointPath}?organizationId=${organizationId}`);
-    }
+        const created = await this.#routesEndpoint.create({
+            organizationId: resource.organizationId,
+            name: resource.name,
+        });
+        let route = created.data;
+        const routeId = route.id;
 
-    activateRoute(id) {
-        if (useFakeAuth) {
-            return Promise.resolve({ status: 200, data: { id, routeState: 'ACTIVE' } });
+        for (const waypoint of resource.waypoints || []) {
+            const response = await this.http.post(`${routeEndpointPath}/${routeId}/stops`, toWaypointPayload(waypoint));
+            route = response.data;
         }
-        return this.http.patch(`${routeEndpointPath}/${id}`, { routeState: 'ACTIVE' });
+
+        const departureTime = resource.scheduledStartTime || resource.departureTime;
+        if (departureTime) {
+            const response = await this.http.put(`${routeEndpointPath}/${routeId}/departure-time`, { departureTime });
+            route = response.data;
+        }
+
+        const serviceDays = resource.serviceDays?.length ? resource.serviceDays : defaultServiceDays;
+        const serviceResponse = await this.http.put(`${routeEndpointPath}/${routeId}/service-days`, { days: serviceDays });
+        route = serviceResponse.data;
+
+        if (resource.vehicleId || resource.vehiclePlate) {
+            let selectedVehicle = null;
+            if (resource.vehicleId) {
+                selectedVehicle = await ignoreNotSupported(
+                    this.#vehiclesEndpoint.getById(resource.vehicleId).then(response => response.data),
+                    null
+                );
+            }
+            const vehiclePayload = {
+                plate: resource.vehiclePlate || selectedVehicle?.plate || 'UNASSIGNED',
+                model: resource.vehicleModel || selectedVehicle?.model || 'Vehicle',
+                brand: resource.vehicleBrand || selectedVehicle?.brand || 'SafeRoute',
+                capacity: Number(resource.vehicleCapacity || selectedVehicle?.capacity || resource.studentIds?.length || 1),
+            };
+            const response = await this.http.put(`${routeEndpointPath}/${routeId}/vehicle`, vehiclePayload);
+            route = response.data;
+        }
+
+        if (resource.driverId) {
+            const response = await this.http.put(`${routeEndpointPath}/${routeId}/driver`, { driverId: resource.driverId });
+            route = response.data;
+        }
+
+        for (const childId of resource.studentIds || []) {
+            const response = await this.http.post(`${routeEndpointPath}/${routeId}/children`, { childId });
+            route = response.data;
+        }
+
+        if (resource.driverId && (resource.studentIds || []).length && (resource.waypoints || []).length >= 2 && departureTime) {
+            const response = await ignoreNotSupported(
+                this.http.post(`${routeEndpointPath}/${routeId}/activate`),
+                { data: route }
+            );
+            route = response.data;
+        }
+
+        saveRouteUiState(routeId, resource);
+        return { ...created, data: toUiRoute(route, resource) };
     }
 
-    // ─── Stop methods (diagram) ──────────────────────────────────────────────
+    async getRoutesByOrganization(organizationId) {
+        if (useFakeAuth) return Promise.resolve({ status: 200, data: mockRoutes() });
+        const response = organizationId
+            ? await this.http.get(`${routeEndpointPath}?organizationId=${organizationId}`)
+            : await this.#routesEndpoint.getAll();
+        return { ...response, data: (response.data || []).map(route => toUiRoute(route)) };
+    }
 
-    addStop(request) {
+    async activateRoute(id) {
+        if (useFakeAuth) return Promise.resolve({ status: 200, data: { id, routeState: 'ACTIVE' } });
+        const response = await this.http.post(`${routeEndpointPath}/${id}/activate`);
+        return { ...response, data: toUiRoute(response.data) };
+    }
+
+    async addStop(request) {
         if (useFakeAuth) {
             const newStop = { ...request, id: `stop-${Date.now()}` };
             return Promise.resolve({ status: 201, data: newStop });
         }
-        return this.http.post(stopEndpointPath, request);
+        return this.http.post(`${routeEndpointPath}/${request.routeId}/stops`, toWaypointPayload(request));
     }
 
-    getStopsByRoute(routeId) {
+    async getStopsByRoute(routeId) {
         if (useFakeAuth) {
             const route = mockRoutes().find(r => String(r.id) === String(routeId));
             const stops = (route?.waypoints || []).map((wp, i) => ({
@@ -120,10 +248,9 @@ export class FleetApi extends BaseApi {
             }));
             return Promise.resolve({ status: 200, data: stops });
         }
-        return this.http.get(`${stopEndpointPath}?routeId=${routeId}`);
+        const response = await this.#routesEndpoint.getById(routeId);
+        return { ...response, data: toUiRoute(response.data).waypoints };
     }
-
-    // ─── Vehicle methods (diagram) ───────────────────────────────────────────
 
     createVehicle(request) {
         if (useFakeAuth) {
@@ -134,12 +261,44 @@ export class FleetApi extends BaseApi {
         return this.#vehiclesEndpoint.create(request);
     }
 
-    getVehiclesByOrganization(organizationId) {
+    async getVehiclesByOrganization(organizationId) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: mockVehicles() });
-        return this.http.get(`${vehicleEndpointPath}?organizationId=${organizationId}`);
+        const response = await this.#vehiclesEndpoint.getAll();
+        return {
+            ...response,
+            data: (response.data || []).filter(vehicle => !organizationId || vehicle.organizationId === organizationId),
+        };
     }
 
-    // ─── Assignment methods (diagram) ────────────────────────────────────────
+    async getDriversByOrganization(organizationId) {
+        if (useFakeAuth) {
+            const drivers = seedData.profiles.filter(p => !organizationId || (p.organizationId === organizationId && p.role === 'driver'));
+            return { status: 200, data: drivers };
+        }
+        const response = await this.http.get('/drivers');
+        return {
+            ...response,
+            data: (response.data || []).filter(driver => !organizationId || driver.organizationId === organizationId),
+        };
+    }
+
+    async getChildrenByOrganization(organizationId) {
+        if (useFakeAuth) {
+            const children = seedData.children.filter(c => !organizationId || c.organizationId === organizationId);
+            return { status: 200, data: children };
+        }
+        const response = await this.http.get('/parents');
+        const children = (response.data || [])
+            .filter(parent => !organizationId || parent.organizationId === organizationId)
+            .flatMap(parent =>
+            (parent.children || []).map(child => ({
+                ...child,
+                parentId: parent.id,
+                organizationId: parent.organizationId,
+            }))
+        );
+        return { ...response, data: children };
+    }
 
     createAssignment(request) {
         if (useFakeAuth) {
@@ -147,7 +306,7 @@ export class FleetApi extends BaseApi {
             saveMockAssignment(newAssignment);
             return Promise.resolve({ status: 201, data: newAssignment });
         }
-        return this.http.post('/assignments', request);
+        return Promise.resolve({ status: 200, data: request });
     }
 
     getAssignmentByRoute(routeId) {
@@ -155,35 +314,33 @@ export class FleetApi extends BaseApi {
             const found = mockAssignments().find(a => String(a.routeId) === String(routeId));
             return Promise.resolve({ status: 200, data: found || null });
         }
-        return this.http.get(`/assignments?routeId=${routeId}`);
+        return this.getRouteById(routeId).then(response => ({ ...response, data: response.data.assignment || null }));
     }
-
-    // ─── Backward-compatible methods (used by existing views) ────────────────
 
     getRoutes(organizationId) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: mockRoutes(organizationId) });
-        return organizationId
-            ? this.http.get(`${routeEndpointPath}?organizationId=${organizationId}`)
-            : this.#routesEndpoint.getAll();
+        return this.getRoutesByOrganization(organizationId);
     }
 
-    getRouteById(id) {
+    async getRouteById(id) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: mockRoutes().find(r => r.id === id) ?? null });
-        return this.#routesEndpoint.getById(id);
+        const response = await this.#routesEndpoint.getById(id);
+        return { ...response, data: toUiRoute(response.data) };
     }
 
-    updateRoute(resource) {
+    async updateRoute(resource) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: resource });
-        return this.#routesEndpoint.update(resource.id, resource);
+        saveRouteUiState(resource.id, resource);
+        return Promise.resolve({ status: 200, data: toUiRoute({ id: resource.id, ...resource }, resource) });
     }
 
     deleteRoute(id) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: {} });
-        return this.#routesEndpoint.delete(id);
+        const state = readRouteUiState();
+        delete state[id];
+        localStorage.setItem(routeUiStateKey(), JSON.stringify(state));
+        return Promise.resolve({ status: 204, data: {} });
     }
 }
 
-/**
- * Backward-compatible alias — existing views import RouteApi.
- */
 export { FleetApi as RouteApi };

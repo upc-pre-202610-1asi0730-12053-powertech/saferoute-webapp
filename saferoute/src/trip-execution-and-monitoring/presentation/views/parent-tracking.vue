@@ -7,28 +7,37 @@ import markerIcon   from 'leaflet/dist/images/marker-icon.png';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { fetchRoadRoute } from '../../../shared/infrastructure/ors.js';
+import { useIamStore } from '../../../identity-and-access-management/application/iam.store.js';
+import { TripApi } from '../../infrastructure/trip-api.js';
+import { RouteApi } from '../../../fleet-and-route-planning/infrastructure/route-api.js';
+import { StakeholderApi } from '../../../stakeholder-and-asset-management/infrastructure/stakeholder-api.js';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow });
 
 const { t } = useI18n();
+const iamStore = useIamStore();
+const tripApi = new TripApi();
+const routeApi = new RouteApi();
+const stakeholderApi = new StakeholderApi();
 
 // ── Route simulation data ──────────────────────────────────────────────────
-const ROUTE_PATH = [
+let ROUTE_PATH = [
   [-12.046374, -77.042793],
   [-12.052000, -77.035000],
   [-12.060000, -77.030000],
   [-12.068000, -77.022000],
   [-12.075000, -77.015000],   // HOME_POSITION
 ];
-const HOME_POSITION = ROUTE_PATH[ROUTE_PATH.length - 1];
+let HOME_POSITION = ROUTE_PATH[ROUTE_PATH.length - 1];
 const PROXIMITY_THRESHOLD_M = 500;
 const STEP_INTERVAL_MS = 4000; // ms between route steps
 
 // ── State ──────────────────────────────────────────────────────────────────
 const busStepIdx       = ref(0);
 const busPos           = ref(ROUTE_PATH[0]);
-const busInfo          = ref({ driver: 'Carlos Ramirez', route: 'Ruta Norte — Comas / Los Olivos', vehiclePlate: 'ABC-123' });
+const busInfo          = ref({ driver: 'Conductor asignado', route: 'Ruta asignada', vehiclePlate: 'Sin placa' });
+const routeTimeline    = ref([]);
 
 // US19 — Proximity alert
 const proximityAlert   = ref(false);   // triggered when < 500 m
@@ -57,13 +66,21 @@ const etaLabel = computed(() => {
 });
 
 // ── Timeline (reactive) ────────────────────────────────────────────────────
-const timeline = computed(() => [
+const timeline = computed(() => {
+  if (routeTimeline.value.length) {
+    return routeTimeline.value.map((item, index) => ({
+      ...item,
+      done: index <= busStepIdx.value || arrivalConfirmed.value,
+    }));
+  }
+  return [
   { time: '06:00', event: 'Bus salió del punto de inicio',   done: busStepIdx.value >= 0, icon: 'pi pi-flag'       },
   { time: '06:15', event: 'Parada 1 - Av. Universitaria',    done: busStepIdx.value >= 1, icon: 'pi pi-map-marker' },
   { time: '06:30', event: 'Parada 2 - Av. Angélica Gamarra', done: busStepIdx.value >= 2, icon: 'pi pi-map-marker' },
   { time: '06:45', event: 'Parada 3 - Jr. Las Orquídeas',    done: busStepIdx.value >= 3, icon: 'pi pi-map-marker' },
   { time: '07:00', event: 'Llegada a tu zona',                done: arrivalConfirmed.value, icon: 'pi pi-home'      },
-]);
+  ];
+});
 
 // ── Map ────────────────────────────────────────────────────────────────────
 const orsLoading = ref(false);
@@ -72,6 +89,62 @@ let busMarker   = null;
 let simTimer    = null;
 let roadPath    = ROUTE_PATH;   // will be replaced by ORS result
 let routeLine   = null;
+
+function personName(person) {
+  return person?.fullName || `${person?.firstName || ''} ${person?.lastName || ''}`.trim();
+}
+
+function useRoutePath(route) {
+  const waypoints = (route?.waypoints || [])
+    .filter(wp => Number.isFinite(Number(wp.lat)) && Number.isFinite(Number(wp.lng)));
+  if (waypoints.length < 2) return;
+
+  ROUTE_PATH = waypoints.map(wp => [Number(wp.lat), Number(wp.lng)]);
+  HOME_POSITION = ROUTE_PATH[ROUTE_PATH.length - 1];
+  roadPath = ROUTE_PATH;
+  busStepIdx.value = 0;
+  busPos.value = ROUTE_PATH[0];
+  routeTimeline.value = waypoints.map((wp, index) => ({
+    time: index === 0 ? (route?.scheduledStartTime || route?.departureTime || '') : '',
+    event: index === 0 ? `Inicio - ${wp.name}` : index === waypoints.length - 1 ? `Destino - ${wp.name}` : wp.name,
+    done: false,
+    icon: index === 0 ? 'pi pi-flag' : index === waypoints.length - 1 ? 'pi pi-home' : 'pi pi-map-marker',
+  }));
+}
+
+async function loadTrackingData() {
+  const orgId = iamStore.currentUser?.organizationId;
+  if (!orgId) return;
+
+  try {
+    const [parentsRes, tripsRes, routesRes, driversRes] = await Promise.all([
+      stakeholderApi.getParentsByOrganization(orgId),
+      tripApi.getTrips(orgId),
+      routeApi.getRoutes(orgId),
+      routeApi.getDriversByOrganization(orgId),
+    ]);
+
+    const parent = (parentsRes.data || []).find(p => p.userId === iamStore.currentUser?.id || p.email === iamStore.currentUser?.email);
+    const childIds = (parent?.children || []).map(child => child.id);
+    const trips = tripsRes.data || [];
+    const selectedTrip =
+      trips.find(trip => trip.status === 'EN_ROUTE' && childIds.some(id => (trip.studentIds || []).includes(id))) ||
+      trips.find(trip => childIds.some(id => (trip.studentIds || []).includes(id))) ||
+      trips.find(trip => trip.status === 'EN_ROUTE') ||
+      trips[0];
+    const route = (routesRes.data || []).find(item => item.id === selectedTrip?.routeId);
+    const driver = (driversRes.data || []).find(item => String(item.id) === String(selectedTrip?.driverId || route?.driverId));
+
+    if (route) useRoutePath(route);
+    busInfo.value = {
+      driver: personName(driver) || selectedTrip?.driverName || route?.driverName || 'Conductor asignado',
+      route: selectedTrip?.routeName || route?.name || 'Ruta asignada',
+      vehiclePlate: selectedTrip?.vehiclePlate || route?.vehiclePlate || 'Sin placa',
+    };
+  } catch (error) {
+    console.warn('Parent tracking data could not be loaded from backend:', error);
+  }
+}
 
 function initMap() {
   if (map) return;
@@ -159,6 +232,7 @@ function advanceBus() {
 }
 
 onMounted(async () => {
+  await loadTrackingData();
   await nextTick();
   initMap();
   loadRoadRoute(); // async — upgrades polyline to real roads in background

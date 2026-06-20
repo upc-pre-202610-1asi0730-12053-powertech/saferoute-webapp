@@ -8,6 +8,9 @@ export class Profile {
    #_firstName;
    #_lastName;
    #_phone;
+   #_role;
+   #_license;
+   #_status;
 
    /**
     * @param {Object} params - Entity attributes.
@@ -16,11 +19,14 @@ export class Profile {
     * @param {string} [params.lastName=''] - Last name.
     * @param {string} [params.phone=''] - Phone number.
     */
-   constructor({ id = null, firstName = '', lastName = '', phone = ''}) {
+   constructor({ id = null, firstName = '', lastName = '', phone = '', role = '', license = '', status = ''}) {
        this.#_id = id;
        this.#_firstName = firstName;
        this.#_lastName = lastName;
        this.#_phone = phone;
+       this.#_role = role;
+       this.#_license = license;
+       this.#_status = status;
    }
 
    get id() { return this.#_id; }
@@ -34,4 +40,13 @@ export class Profile {
 
    get phone() { return this.#_phone; }
    set phone(value) { this.#_phone = value; }
+
+   get role() { return this.#_role; }
+   set role(value) { this.#_role = value; }
+
+   get license() { return this.#_license; }
+   set license(value) { this.#_license = value; }
+
+   get status() { return this.#_status; }
+   set status(value) { this.#_status = value; }
 }

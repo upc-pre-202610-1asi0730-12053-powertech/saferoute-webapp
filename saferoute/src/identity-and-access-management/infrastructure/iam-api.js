@@ -1,47 +1,19 @@
+import axios from "axios";
 import { BaseApi } from "../../shared/infrastructure/base-api.js";
 import { BaseEndpoint } from "../../shared/infrastructure/base-endpoint.js";
-import seedData from '../../server/db.json';
 
 const usersEndpointPath         = import.meta.env.VITE_USERS_ENDPOINT_PATH         || '/users';
 const organizationsEndpointPath = import.meta.env.VITE_ORGANIZATIONS_ENDPOINT_PATH || '/organizations';
-const signInEndpointPath        = import.meta.env.VITE_SIGN_IN_ENDPOINT_PATH       || '/authentication/sign-in';
-const signUpEndpointPath        = import.meta.env.VITE_SIGN_UP_ENDPOINT_PATH       || '/authentication/sign-up';
+const signInEndpointPath        = import.meta.env.VITE_SIGN_IN_ENDPOINT_PATH       || '/users/sign-in';
+const signUpEndpointPath        = import.meta.env.VITE_SIGN_UP_ENDPOINT_PATH       || '/users';
 
-const useFakeAuth = String(import.meta.env.VITE_USE_FAKE_AUTH).toLowerCase() === 'true';
-
-// ── Mock helpers (localStorage-backed, no server needed) ─────────────────────
-
-const MOCK_USERS_KEY = 'saferoute.mock.users';
-const MOCK_ORGS_KEY  = 'saferoute.mock.orgs';
-
-function mockUsers() {
-    const extra = JSON.parse(localStorage.getItem(MOCK_USERS_KEY) || '[]');
-    return [...seedData.users, ...extra];
-}
-
-function mockOrgs() {
-    const extra = JSON.parse(localStorage.getItem(MOCK_ORGS_KEY) || '[]');
-    return [...seedData.organizations, ...extra];
-}
-
-function saveMockUser(user) {
-    const extra = JSON.parse(localStorage.getItem(MOCK_USERS_KEY) || '[]');
-    extra.push(user);
-    localStorage.setItem(MOCK_USERS_KEY, JSON.stringify(extra));
-    return user;
-}
-
-function saveMockOrg(org) {
-    const extra = JSON.parse(localStorage.getItem(MOCK_ORGS_KEY) || '[]');
-    extra.push(org);
-    localStorage.setItem(MOCK_ORGS_KEY, JSON.stringify(extra));
-    return org;
-}
+const useFakeIam = String(import.meta.env.VITE_USE_FAKE_IAM).toLowerCase() === 'true';
+const iamApiBaseUrl = import.meta.env.VITE_IAM_API_BASE_URL || 'http://localhost:3000';
 
 /**
  * Infrastructure gateway for IAM bounded-context endpoints.
- * When VITE_USE_FAKE_AUTH=true all operations run in-memory (localStorage + seed
- * data) — no running server is required. Set to false to target the real backend.
+ * When VITE_USE_FAKE_IAM=true, IAM runs against json-server while the rest of
+ * the application can keep using the real backend.
  *
  * @class IamApi
  * @extends BaseApi
@@ -49,72 +21,58 @@ function saveMockOrg(org) {
 export class IamApi extends BaseApi {
     #usersEndpoint;
     #organizationsEndpoint;
+    #iamHttp;
 
     constructor() {
         super();
         this.#usersEndpoint        = new BaseEndpoint(this, usersEndpointPath);
         this.#organizationsEndpoint = new BaseEndpoint(this, organizationsEndpointPath);
+        this.#iamHttp = axios.create({
+            baseURL: iamApiBaseUrl,
+            headers: { 'Content-Type': 'application/json' },
+        });
     }
 
-    // ─── Authentication ──────────────────────────────────────────────────────
-
     signIn(email, password) {
-        if (useFakeAuth) {
-            const found = mockUsers().filter(u => u.email === email && u.password === password);
-            return Promise.resolve({ data: found });
+        if (useFakeIam) {
+            return this.#iamHttp.get(usersEndpointPath, { params: { email, password } });
         }
-        // Adaptación para usar el json-server base que solo tiene '/users'
-        // json-server permite filtrar datos pasando query params
-        return this.http.get(`${usersEndpointPath}?email=${email}&password=${password}`);
+        return this.http.post(signInEndpointPath, { email, password });
     }
 
     registerUser(request) {
-        if (useFakeAuth) {
-            if (mockUsers().some(u => u.email === request.email)) {
-                return Promise.reject(new Error('Email already registered'));
-            }
-            const newUser = { ...request, id: `u-${Date.now()}` };
-            saveMockUser(newUser);
-            return Promise.resolve({ data: newUser });
+        if (useFakeIam) {
+            return this.#iamHttp.post(usersEndpointPath, request);
         }
-        // json-server crea nuevos registros haciendo un POST a la colección
-        return this.http.post(usersEndpointPath, request);
+        return this.http.post(signUpEndpointPath, request);
     }
 
-    // ─── Users ───────────────────────────────────────────────────────────────
-
     getUsers() {
-        if (useFakeAuth) return Promise.resolve({ data: mockUsers() });
+        if (useFakeIam) return this.#iamHttp.get(usersEndpointPath);
         return this.#usersEndpoint.getAll();
     }
 
     getUserById(id) {
-        if (useFakeAuth) return Promise.resolve({ data: mockUsers().find(u => u.id === id) || null });
+        if (useFakeIam) return this.#iamHttp.get(`${usersEndpointPath}/${id}`);
         return this.#usersEndpoint.getById(id);
     }
 
-    // ─── Organizations ───────────────────────────────────────────────────────
-
     createOrganization(request) {
-        if (useFakeAuth) {
-            const newOrg = { ...request, id: `org-${Date.now()}` };
-            saveMockOrg(newOrg);
-            return Promise.resolve({ data: newOrg });
+        if (useFakeIam) {
+            return this.#iamHttp.post(organizationsEndpointPath, request);
         }
-        return this.#organizationsEndpoint.create(request);
+        return this.#organizationsEndpoint.create({ name: request.name });
     }
 
     getOrganizationById(id) {
-        if (useFakeAuth) {
-            const org = mockOrgs().find(o => o.id === id) || null;
-            if (!org) return Promise.reject(new Error('Organization not found'));
-            return Promise.resolve({ data: org });
-        }
+        if (useFakeIam) return this.#iamHttp.get(`${organizationsEndpointPath}/${id}`);
         return this.#organizationsEndpoint.getById(id);
     }
 
     updateOrganization(resource) {
-        if (useFakeAuth) return Promise.resolve({ data: resource });
+        if (useFakeIam) {
+            return this.#iamHttp.put(`${organizationsEndpointPath}/${resource.id}`, resource);
+        }
         return this.#organizationsEndpoint.update(resource.id, resource);
     }
 }

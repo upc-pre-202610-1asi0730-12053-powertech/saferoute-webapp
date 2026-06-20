@@ -112,8 +112,7 @@ export const useStakeholderStore = defineStore('stakeholder-and-asset-management
     }
 
     function getProfileById(id) {
-        let idNum = parseInt(id);
-        return profiles.value.find(p => p.id === idNum);
+        return profiles.value.find(p => String(p.id) === String(id));
     }
 
     function addProfile(profile) {

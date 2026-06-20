@@ -24,6 +24,7 @@ export class Notification {
         category = '', deliveryState = '', message = '', sentAt = '',
         alerts = [], announcements = [],
         type = '', timestamp = '', read = false,
+        title = '', content = '',
     }) {
         this.id = id;
         this.organizationId = organizationId;
@@ -38,5 +39,7 @@ export class Notification {
         this.type = type || category;
         this.timestamp = timestamp || sentAt;
         this.read = read || deliveryState === 'READ';
+        this.title = title || this.type || this.category;
+        this.content = content || this.message;
     }
 }

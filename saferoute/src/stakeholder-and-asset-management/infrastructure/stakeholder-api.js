@@ -4,8 +4,8 @@ import seedData from '../../server/db.json';
 
 const profilesEndpointPath = import.meta.env.VITE_STAKEHOLDER_ENDPOINT_PATH || '/profiles';
 const parentsEndpointPath  = '/parents';
-const childrenEndpointPath = '/children';
-const groupsEndpointPath   = '/groups';
+const driversEndpointPath  = '/drivers';
+const groupsEndpointPath   = import.meta.env.VITE_STUDENT_GROUPS_ENDPOINT_PATH || '/student-groups';
 const useFakeAuth          = String(import.meta.env.VITE_USE_FAKE_AUTH).toLowerCase() === 'true';
 
 function getCurrentOrgId() {
@@ -38,11 +38,105 @@ function mockGroups() {
     return JSON.parse(localStorage.getItem(mockGroupKey()) || '[]');
 }
 
+function getStoredProfiles() {
+    return JSON.parse(localStorage.getItem(mockKey()) || '[]');
+}
+
+function saveStoredProfiles(profiles) {
+    localStorage.setItem(mockKey(), JSON.stringify(profiles));
+}
+
 function saveMockProfile(profile) {
-    const extra = JSON.parse(localStorage.getItem(mockKey()) || '[]');
-    extra.push(profile);
-    localStorage.setItem(mockKey(), JSON.stringify(extra));
+    const extra = getStoredProfiles();
+    const index = extra.findIndex(item => String(item.id) === String(profile.id));
+    if (index === -1) extra.push(profile);
+    else extra[index] = profile;
+    saveStoredProfiles(extra);
     return profile;
+}
+
+function getCurrentUser() {
+    try { return JSON.parse(localStorage.getItem('saferoute.user') || '{}'); }
+    catch { return {}; }
+}
+
+function splitName(resource) {
+    const fullName = resource.fullName || resource.name || '';
+    const [first = '', ...rest] = fullName.trim().split(/\s+/);
+    return {
+        firstName: resource.firstName || first,
+        lastName: resource.lastName || rest.join(' '),
+    };
+}
+
+function toProfileCreatePayload(resource) {
+    const currentUser = getCurrentUser();
+    const { firstName, lastName } = splitName(resource);
+    const organizationId = resource.organizationId || currentUser.organizationId;
+    const userId = resource.userId || currentUser.id;
+    if (!organizationId || !userId || !firstName || !lastName) return null;
+    return {
+        organizationId,
+        userId,
+        firstName,
+        lastName,
+        phone: resource.phone || resource.phoneNumber || '',
+        role: resource.role || 'parent',
+        license: resource.license || resource.licenseNumber || null,
+        status: resource.status || 'ACTIVE',
+    };
+}
+
+function toParentPayload(resource) {
+    const currentUser = getCurrentUser();
+    const { firstName, lastName } = splitName(resource);
+    const organizationId = resource.organizationId || currentUser.organizationId;
+    const userId = resource.userId || currentUser.id;
+    if (!organizationId || !userId || !firstName || !lastName || !resource.email) return null;
+    return {
+        organizationId,
+        userId,
+        firstName,
+        lastName,
+        email: resource.email,
+        phoneNumber: resource.phoneNumber || resource.phone || '',
+    };
+}
+
+function toDriverPayload(resource) {
+    const currentUser = getCurrentUser();
+    const { firstName, lastName } = splitName(resource);
+    const organizationId = resource.organizationId || currentUser.organizationId;
+    const userId = resource.userId || currentUser.id;
+    if (!organizationId || !userId || !firstName || !lastName || !resource.email) return null;
+    return {
+        organizationId,
+        userId,
+        firstName,
+        lastName,
+        email: resource.email,
+        phoneNumber: resource.phoneNumber || resource.phone || '',
+        licenseNumber: resource.licenseNumber || resource.license || '',
+    };
+}
+
+function toChildPayload(resource) {
+    const { firstName, lastName } = splitName(resource);
+    if (!resource.parentId || !firstName || !lastName) return null;
+    return {
+        parentId: resource.parentId,
+        payload: {
+            firstName,
+            lastName,
+            age: Number(resource.age || 0),
+        },
+    };
+}
+
+function withStoredProfiles(data, organizationId) {
+    const local = getStoredProfiles();
+    return [...(data || []), ...local]
+        .filter(profile => !organizationId || profile.organizationId === organizationId);
 }
 
 /**
@@ -65,12 +159,18 @@ export class StakeholderApi extends BaseApi {
             const newParent = { ...request, id: `p-${Date.now()}` };
             return Promise.resolve({ status: 201, data: newParent });
         }
-        return this.http.post(parentsEndpointPath, request);
+        const payload = toParentPayload(request);
+        if (!payload) return Promise.resolve({ status: 201, data: saveMockProfile({ ...request, id: `p-${Date.now()}`, role: 'parent' }) });
+        return this.http.post(parentsEndpointPath, payload);
     }
 
-    getParentsByOrganization(organizationId) {
+    async getParentsByOrganization(organizationId) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: mockParents() });
-        return this.http.get(`${parentsEndpointPath}?organizationId=${organizationId}`);
+        const response = await this.http.get(parentsEndpointPath);
+        return {
+            ...response,
+            data: (response.data || []).filter(parent => !organizationId || parent.organizationId === organizationId),
+        };
     }
 
     createDriver(request) {
@@ -79,34 +179,48 @@ export class StakeholderApi extends BaseApi {
             saveMockProfile(newDriver);
             return Promise.resolve({ status: 201, data: newDriver });
         }
-        return this.#profilesEndpoint.create({ ...request, role: 'driver' });
+        const payload = toDriverPayload(request);
+        if (!payload) return Promise.resolve({ status: 201, data: saveMockProfile({ ...request, id: Date.now(), role: 'driver' }) });
+        return this.http.post(driversEndpointPath, payload);
     }
 
-    getDriversByOrganization(organizationId) {
+    async getDriversByOrganization(organizationId) {
         if (useFakeAuth) {
             const drivers = mockProfiles().filter(p => p.role === 'driver');
             return Promise.resolve({ status: 200, data: drivers });
         }
-        return this.http.get(`${profilesEndpointPath}?organizationId=${organizationId}&role=driver`);
+        const response = await this.http.get(driversEndpointPath);
+        return {
+            ...response,
+            data: (response.data || []).filter(driver => !organizationId || driver.organizationId === organizationId),
+        };
     }
 
-    createChild(request) {
+    async createChild(request) {
         if (useFakeAuth) {
             const newChild = { ...request, id: `c-${Date.now()}` };
             return Promise.resolve({ status: 201, data: newChild });
         }
-        return this.http.post(childrenEndpointPath, request);
+        const child = toChildPayload(request);
+        if (!child) return Promise.resolve({ status: 201, data: { ...request, id: `c-${Date.now()}` } });
+        const response = await this.http.post(`${parentsEndpointPath}/${child.parentId}/children`, child.payload);
+        const createdChild = (response.data?.children || []).at(-1) || { ...request, id: `c-${Date.now()}` };
+        return { ...response, data: { ...createdChild, parentId: child.parentId } };
     }
 
-    getChildrenByParent(parentId) {
+    async getChildrenByParent(parentId) {
         if (useFakeAuth) {
             const children = mockChildren().filter(c => c.parentId === parentId);
             return Promise.resolve({ status: 200, data: children });
         }
-        return this.http.get(`${childrenEndpointPath}?parentId=${parentId}`);
+        const response = await this.http.get(`${parentsEndpointPath}/${parentId}`);
+        return {
+            ...response,
+            data: (response.data?.children || []).map(child => ({ ...child, parentId })),
+        };
     }
 
-    createStudentGroup(request) {
+    async createStudentGroup(request) {
         if (useFakeAuth) {
             const newGroup = { ...request, id: `grp-${Date.now()}`, isFinalized: false };
             const list = mockGroups();
@@ -114,15 +228,26 @@ export class StakeholderApi extends BaseApi {
             localStorage.setItem(mockGroupKey(), JSON.stringify(list));
             return Promise.resolve({ status: 201, data: newGroup });
         }
-        return this.http.post(groupsEndpointPath, request);
+        let response = await this.http.post(groupsEndpointPath, {
+            organizationId: request.organizationId,
+            name: request.name,
+        });
+        for (const childId of request.childIds || []) {
+            response = await this.http.post(`${groupsEndpointPath}/${response.data.id}/children`, { childId });
+        }
+        return response;
     }
 
-    getGroupsByOrganization(organizationId) {
+    async getGroupsByOrganization(organizationId) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: mockGroups() });
-        return this.http.get(`${groupsEndpointPath}?organizationId=${organizationId}`);
+        const response = await this.http.get(groupsEndpointPath);
+        return {
+            ...response,
+            data: (response.data || []).filter(group => !organizationId || group.organizationId === organizationId),
+        };
     }
 
-    finalizeGroup(groupId) {
+    async finalizeGroup(groupId) {
         if (useFakeAuth) {
             const list = mockGroups();
             const idx = list.findIndex(g => g.id === groupId);
@@ -132,16 +257,15 @@ export class StakeholderApi extends BaseApi {
             }
             return Promise.resolve({ status: 200, data: list[idx] || null });
         }
-        return this.http.patch(`${groupsEndpointPath}/${groupId}`, { isFinalized: true });
+        return this.http.post(`${groupsEndpointPath}/${groupId}/finalize`);
     }
 
     // ─── Backward-compatible methods (used by existing views) ────────────────
 
-    getProfiles(organizationId) {
+    async getProfiles(organizationId) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: mockProfiles(organizationId) });
-        return organizationId
-            ? this.http.get(`${profilesEndpointPath}?organizationId=${organizationId}`)
-            : this.#profilesEndpoint.getAll();
+        const response = await this.#profilesEndpoint.getAll();
+        return { ...response, data: withStoredProfiles(response.data, organizationId) };
     }
 
     getProfileById(id) {
@@ -155,16 +279,26 @@ export class StakeholderApi extends BaseApi {
             saveMockProfile(newProfile);
             return Promise.resolve({ status: 201, data: newProfile });
         }
-        return this.#profilesEndpoint.create(resource);
+        const role = String(resource.role || '').toLowerCase();
+        if (role === 'driver') {
+            const payload = toDriverPayload(resource);
+            if (payload) return this.http.post(driversEndpointPath, payload);
+        }
+        if (role === 'parent') {
+            const payload = toParentPayload(resource);
+            if (payload) return this.http.post(parentsEndpointPath, payload);
+        }
+        return Promise.resolve({ status: 201, data: saveMockProfile({ ...resource, id: Date.now() }) });
     }
 
     updateProfile(resource) {
-        if (useFakeAuth) return Promise.resolve({ status: 200, data: resource });
-        return this.#profilesEndpoint.update(resource.id, resource);
+        saveMockProfile(resource);
+        return Promise.resolve({ status: 200, data: resource });
     }
 
     deleteProfile(id) {
-        if (useFakeAuth) return Promise.resolve({ status: 200, data: {} });
-        return this.#profilesEndpoint.delete(id);
+        const filtered = getStoredProfiles().filter(profile => String(profile.id) !== String(id));
+        saveStoredProfiles(filtered);
+        return Promise.resolve({ status: 204, data: {} });
     }
 }

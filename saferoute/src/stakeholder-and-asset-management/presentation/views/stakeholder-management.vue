@@ -4,12 +4,16 @@ import { useRoute } from 'vue-router';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import { useIamStore } from '../../../identity-and-access-management/application/iam.store.js';
+import { StakeholderApi } from '../../infrastructure/stakeholder-api.js';
+import { RouteApi } from '../../../fleet-and-route-planning/infrastructure/route-api.js';
 import seedData from '../../../server/db.json';
 
 const route    = useRoute();
 const confirm  = useConfirm();
 const toast    = useToast();
 const iamStore = useIamStore();
+const stakeholderApi = new StakeholderApi();
+const routeApi = new RouteApi();
 
 /* ── Org-scoped localStorage helpers ────────────────────────── */
 const orgId = iamStore.currentUser?.organizationId;
@@ -214,8 +218,68 @@ const onAddClick = () => {
   }
 };
 
+function fullNameOf(item) {
+  return item?.fullName || item?.name || `${item?.firstName || ''} ${item?.lastName || ''}`.trim();
+}
+
+function normalizeParent(parent) {
+  return {
+    ...parent,
+    name: fullNameOf(parent),
+    phone: parent.phone || parent.phoneNumber || '',
+    status: parent.status ?? true,
+  };
+}
+
+function normalizeChild(child, parent) {
+  return {
+    ...child,
+    name: fullNameOf(child),
+    grade: child.grade || child.age || '',
+    parentId: child.parentId || parent?.id || null,
+    boardingStatus: child.boardingStatus || 'EN_ESPERA',
+    status: child.status ?? true,
+  };
+}
+
+function normalizeDriver(driver) {
+  return {
+    ...driver,
+    name: fullNameOf(driver),
+    license: driver.license || driver.licenseNumber || '',
+    vehicle_id: driver.vehicle_id || driver.vehicleId || null,
+    status: driver.status === undefined ? true : driver.status === true || driver.status === 'ACTIVE',
+  };
+}
+
+function normalizeVehicle(vehicle) {
+  return {
+    ...vehicle,
+    status: vehicle.status === undefined ? true : vehicle.status === true || vehicle.status === 'ACTIVE',
+  };
+}
+
+async function loadBackendData() {
+  if (!orgId) return;
+  try {
+    const [parentsRes, driversRes, fleetRes] = await Promise.all([
+      stakeholderApi.getParentsByOrganization(orgId),
+      stakeholderApi.getDriversByOrganization(orgId),
+      routeApi.getVehiclesByOrganization(orgId),
+    ]);
+    const backendParents = parentsRes.data || [];
+    parents.value = backendParents.map(normalizeParent);
+    children.value = backendParents.flatMap(parent => (parent.children || []).map(child => normalizeChild(child, parent)));
+    drivers.value = (driversRes.data || []).map(normalizeDriver);
+    fleet.value = (fleetRes.data || []).map(normalizeVehicle);
+  } catch (error) {
+    console.warn('Stakeholder backend data could not be loaded:', error);
+  }
+}
+
 /* ── Deep-link via query param ───────────────────────────── */
-onMounted(() => {
+onMounted(async () => {
+  await loadBackendData();
   const tab = String(route.query.tab || '').toLowerCase();
   if (tab === 'parents'  || tab === 'children') { section.value = 'users';     userTab.value = tab; }
   if (tab === 'drivers'  || tab === 'fleet')    { section.value = 'logistics'; logTab.value  = tab; }
