@@ -82,7 +82,7 @@ watch(() => parentForm.value.email, (email) => {
   }
 });
 
-const saveParent = () => {
+const saveParent = async () => {
   if (!parentForm.value.name || !parentForm.value.email) {
     toast.add({ severity: 'error', summary: 'Error', detail: 'Por favor complete los campos obligatorios.', life: 3000 });
     return;
@@ -97,6 +97,39 @@ const saveParent = () => {
     toast.add({ severity: 'error', summary: 'Error', detail: 'Usuario ya existe con este correo.', life: 3000 });
     return;
   }
+  try {
+    const payload = {
+      organizationId: orgId,
+      userId: iamStore.currentUser?.id,
+      name: parentForm.value.name,
+      email: parentForm.value.email,
+      phone: parentForm.value.phone,
+      phoneNumber: parentForm.value.phone,
+    };
+    let parentId = parentForm.value.id;
+    if (parentId) {
+      const existingChildren = children.value.filter(c => c.parentId === parentId);
+      await stakeholderApi.updateParent(parentId, payload);
+      await Promise.all(existingChildren.map(child => stakeholderApi.deleteChild(parentId, child.id)));
+      toast.add({ severity: 'success', summary: 'Actualizado', detail: 'Padre actualizado correctamente.', life: 3000 });
+    } else {
+      const response = await stakeholderApi.createParent(payload);
+      parentId = response.data.id;
+      toast.add({ severity: 'success', summary: 'Registrado', detail: 'Padre registrado correctamente.', life: 3000 });
+      toast.add({ severity: 'info', summary: 'Invitación enviada', detail: `Se ha enviado un enlace de acceso al correo ${parentForm.value.email}`, life: 5000 });
+    }
+    for (const child of parentForm.value.formChildren.filter(c => c.name)) {
+      await stakeholderApi.createChild({ ...child, parentId, name: child.name, age: child.age || child.grade || 0 });
+    }
+    await loadBackendData();
+    parentDrawer.value = false;
+    return;
+  } catch (error) {
+    console.error('Parent save failed:', error);
+    toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo guardar el padre en el backend.', life: 4000 });
+    return;
+  }
+
   if (parentForm.value.id) {
     // Edit
     const idx = parents.value.findIndex(p => p.id === parentForm.value.id);
@@ -133,7 +166,18 @@ const deleteParent = (p) => {
     header: 'Confirmar eliminación',
     icon: 'pi pi-exclamation-triangle',
     acceptSeverity: 'danger',
-    accept: () => {
+    accept: async () => {
+      try {
+        await stakeholderApi.deleteParent(p.id);
+        parents.value  = parents.value.filter(x => x.id !== p.id);
+        children.value = children.value.filter(c => c.parentId !== p.id);
+        toast.add({ severity: 'warn', summary: 'Eliminado', detail: `${p.name} eliminado.`, life: 3000 });
+        return;
+      } catch (error) {
+        console.error('Parent delete failed:', error);
+        toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo eliminar el padre.', life: 4000 });
+        return;
+      }
       parents.value  = parents.value.filter(x => x.id !== p.id);
       children.value = children.value.filter(c => c.parentId !== p.id);
       saveParents(parents.value);
@@ -172,9 +216,13 @@ const openEditChild = (c) => {
   childDialog.value = true;
 };
 
-const saveChild = () => {
+const saveChild = async () => {
   if (!childForm.value.name) {
     toast.add({ severity: 'error', summary: 'Error', detail: 'El nombre del alumno es obligatorio.', life: 3000 });
+    return;
+  }
+  if (!childForm.value.parentId) {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'Seleccione un padre o madre.', life: 3000 });
     return;
   }
   const isDuplicate = children.value.some(c => c.name === childForm.value.name && c.id !== childForm.value.id);
@@ -182,6 +230,25 @@ const saveChild = () => {
     toast.add({ severity: 'error', summary: 'Error', detail: 'El alumno ya existe.', life: 3000 });
     return;
   }
+  try {
+    if (childForm.value.id) {
+      const previous = children.value.find(c => c.id === childForm.value.id);
+      if (previous?.parentId) await stakeholderApi.deleteChild(previous.parentId, previous.id);
+      await stakeholderApi.createChild(childForm.value);
+      toast.add({ severity: 'success', summary: 'Actualizado', detail: 'Alumno actualizado.', life: 3000 });
+    } else {
+      await stakeholderApi.createChild(childForm.value);
+      toast.add({ severity: 'success', summary: 'Registrado', detail: 'Alumno registrado.', life: 3000 });
+    }
+    await loadBackendData();
+    childDialog.value = false;
+    return;
+  } catch (error) {
+    console.error('Child save failed:', error);
+    toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo guardar el alumno en el backend.', life: 4000 });
+    return;
+  }
+
   if (childForm.value.id) {
     const idx = children.value.findIndex(c => c.id === childForm.value.id);
     if (idx !== -1) children.value[idx] = { ...childForm.value };
@@ -200,7 +267,17 @@ const deleteChild = (c) => {
     header: 'Confirmar eliminación',
     icon: 'pi pi-exclamation-triangle',
     acceptSeverity: 'danger',
-    accept: () => {
+    accept: async () => {
+      try {
+        await stakeholderApi.deleteChild(c.parentId, c.id);
+        children.value = children.value.filter(x => x.id !== c.id);
+        toast.add({ severity: 'warn', summary: 'Eliminado', detail: `${c.name} eliminado.`, life: 3000 });
+        return;
+      } catch (error) {
+        console.error('Child delete failed:', error);
+        toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo eliminar el alumno.', life: 4000 });
+        return;
+      }
       children.value = children.value.filter(x => x.id !== c.id);
       saveChildren(children.value);
       toast.add({ severity: 'warn', summary: 'Eliminado', detail: `${c.name} eliminado.`, life: 3000 });
@@ -343,11 +420,55 @@ const openEditLog = (item) => {
   logDrawer.value = true;
 };
 
-const saveLog = () => {
+const saveLog = async () => {
   if (!logForm.value.nameOrPlate) {
     toast.add({ severity: 'error', summary: 'Error', detail: 'Complete los campos obligatorios.', life: 3000 });
     return;
   }
+  try {
+    if (logTab.value === 'drivers') {
+      const payload = {
+        organizationId: orgId,
+        userId: iamStore.currentUser?.id,
+        name: logForm.value.nameOrPlate,
+        fullName: logForm.value.nameOrPlate,
+        license: logForm.value.licenseOrModel,
+        licenseNumber: logForm.value.licenseOrModel,
+        vehicleId: logForm.value.vehicle_id,
+        status: logForm.value.status ? 'ACTIVE' : 'INACTIVE',
+      };
+      if (logForm.value.id) {
+        await stakeholderApi.updateDriver(logForm.value.id, payload);
+        toast.add({ severity: 'success', summary: 'Actualizado', detail: 'Conductor actualizado.', life: 3000 });
+      } else {
+        await stakeholderApi.createDriver(payload);
+        toast.add({ severity: 'success', summary: 'Registrado', detail: 'Conductor registrado.', life: 3000 });
+      }
+    } else {
+      const payload = {
+        organizationId: orgId,
+        plate: logForm.value.nameOrPlate,
+        model: logForm.value.licenseOrModel,
+        capacity: Number(logForm.value.capacity || 1),
+        status: logForm.value.status ? 'ACTIVE' : 'INACTIVE',
+      };
+      if (logForm.value.id) {
+        await routeApi.updateVehicle(logForm.value.id, payload);
+        toast.add({ severity: 'success', summary: 'Actualizado', detail: 'Vehículo actualizado.', life: 3000 });
+      } else {
+        await routeApi.createVehicle(payload);
+        toast.add({ severity: 'success', summary: 'Registrado', detail: 'Vehículo registrado.', life: 3000 });
+      }
+    }
+    await loadBackendData();
+    logDrawer.value = false;
+    return;
+  } catch (error) {
+    console.error('Logistics save failed:', error);
+    toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo guardar el registro en el backend.', life: 4000 });
+    return;
+  }
+
   if (logTab.value === 'drivers') {
     const isDuplicate = drivers.value.some(d => (d.license === logForm.value.licenseOrModel || d.name === logForm.value.nameOrPlate) && d.id !== logForm.value.id);
     if (isDuplicate) {
@@ -389,7 +510,19 @@ const deleteLog = (item) => {
     header: 'Confirmar eliminación',
     icon: 'pi pi-exclamation-triangle',
     acceptSeverity: 'danger',
-    accept: () => {
+    accept: async () => {
+      try {
+        if (isDriver) await stakeholderApi.deleteDriver(item.id);
+        else await routeApi.deleteVehicle(item.id);
+        if (isDriver) drivers.value = drivers.value.filter(d => d.id !== item.id);
+        else fleet.value = fleet.value.filter(f => f.id !== item.id);
+        toast.add({ severity: 'warn', summary: 'Eliminado', detail: 'Registro eliminado.', life: 3000 });
+        return;
+      } catch (error) {
+        console.error('Logistics delete failed:', error);
+        toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo eliminar el registro.', life: 4000 });
+        return;
+      }
       if (isDriver) { drivers.value = drivers.value.filter(d => d.id !== item.id); saveDrivers(drivers.value); }
       else          { fleet.value   = fleet.value.filter(f => f.id !== item.id);   saveFleet(fleet.value);     }
       toast.add({ severity: 'warn', summary: 'Eliminado', detail: 'Registro eliminado.', life: 3000 });

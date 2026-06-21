@@ -65,8 +65,35 @@ function splitName(resource) {
     const [first = '', ...rest] = fullName.trim().split(/\s+/);
     return {
         firstName: resource.firstName || first,
-        lastName: resource.lastName || rest.join(' '),
+        lastName: resource.lastName || rest.join(' ') || '-',
     };
+}
+
+function slug(value) {
+    return String(value || 'user')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '.')
+        .replace(/(^\.|\.$)/g, '') || 'user';
+}
+
+function fallbackEmail(resource, role) {
+    return resource.email || `${slug(resource.name || resource.fullName || role)}.${Date.now()}@saferoute.local`;
+}
+
+function fallbackPhone(resource) {
+    return resource.phoneNumber || resource.phone || '000000000';
+}
+
+function fallbackLicense(resource) {
+    return resource.licenseNumber || resource.license || `LIC-${Date.now()}`;
+}
+
+function toAge(resource) {
+    const value = Number(resource.age || resource.grade || 0);
+    return Number.isFinite(value) && value >= 0 ? value : 0;
 }
 
 function toProfileCreatePayload(resource) {
@@ -92,14 +119,14 @@ function toParentPayload(resource) {
     const { firstName, lastName } = splitName(resource);
     const organizationId = resource.organizationId || currentUser.organizationId;
     const userId = resource.userId || currentUser.id;
-    if (!organizationId || !userId || !firstName || !lastName || !resource.email) return null;
+    if (!organizationId || !userId || !firstName || !lastName) return null;
     return {
         organizationId,
         userId,
         firstName,
         lastName,
-        email: resource.email,
-        phoneNumber: resource.phoneNumber || resource.phone || '',
+        email: fallbackEmail(resource, 'parent'),
+        phoneNumber: fallbackPhone(resource),
     };
 }
 
@@ -108,15 +135,15 @@ function toDriverPayload(resource) {
     const { firstName, lastName } = splitName(resource);
     const organizationId = resource.organizationId || currentUser.organizationId;
     const userId = resource.userId || currentUser.id;
-    if (!organizationId || !userId || !firstName || !lastName || !resource.email) return null;
+    if (!organizationId || !userId || !firstName || !lastName) return null;
     return {
         organizationId,
         userId,
         firstName,
         lastName,
-        email: resource.email,
-        phoneNumber: resource.phoneNumber || resource.phone || '',
-        licenseNumber: resource.licenseNumber || resource.license || '',
+        email: fallbackEmail(resource, 'driver'),
+        phoneNumber: fallbackPhone(resource),
+        licenseNumber: fallbackLicense(resource),
     };
 }
 
@@ -128,7 +155,7 @@ function toChildPayload(resource) {
         payload: {
             firstName,
             lastName,
-            age: Number(resource.age || 0),
+            age: toAge(resource),
         },
     };
 }
@@ -164,6 +191,18 @@ export class StakeholderApi extends BaseApi {
         return this.http.post(parentsEndpointPath, payload);
     }
 
+    updateParent(id, request) {
+        if (useFakeAuth) return Promise.resolve({ status: 200, data: { ...request, id } });
+        const payload = toParentPayload(request);
+        if (!payload) return Promise.resolve({ status: 200, data: { ...request, id } });
+        return this.http.put(`${parentsEndpointPath}/${id}`, payload);
+    }
+
+    deleteParent(id) {
+        if (useFakeAuth) return Promise.resolve({ status: 204, data: {} });
+        return this.http.delete(`${parentsEndpointPath}/${id}`);
+    }
+
     async getParentsByOrganization(organizationId) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: mockParents() });
         const response = await this.http.get(parentsEndpointPath);
@@ -182,6 +221,18 @@ export class StakeholderApi extends BaseApi {
         const payload = toDriverPayload(request);
         if (!payload) return Promise.resolve({ status: 201, data: saveMockProfile({ ...request, id: Date.now(), role: 'driver' }) });
         return this.http.post(driversEndpointPath, payload);
+    }
+
+    updateDriver(id, request) {
+        if (useFakeAuth) return Promise.resolve({ status: 200, data: { ...request, id } });
+        const payload = toDriverPayload(request);
+        if (!payload) return Promise.resolve({ status: 200, data: { ...request, id } });
+        return this.http.put(`${driversEndpointPath}/${id}`, payload);
+    }
+
+    deleteDriver(id) {
+        if (useFakeAuth) return Promise.resolve({ status: 204, data: {} });
+        return this.http.delete(`${driversEndpointPath}/${id}`);
     }
 
     async getDriversByOrganization(organizationId) {
@@ -206,6 +257,11 @@ export class StakeholderApi extends BaseApi {
         const response = await this.http.post(`${parentsEndpointPath}/${child.parentId}/children`, child.payload);
         const createdChild = (response.data?.children || []).at(-1) || { ...request, id: `c-${Date.now()}` };
         return { ...response, data: { ...createdChild, parentId: child.parentId } };
+    }
+
+    deleteChild(parentId, childId) {
+        if (useFakeAuth) return Promise.resolve({ status: 204, data: {} });
+        return this.http.delete(`${parentsEndpointPath}/${parentId}/children/${childId}`);
     }
 
     async getChildrenByParent(parentId) {
