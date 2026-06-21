@@ -450,10 +450,10 @@ function finishTrip() {
 async function selectTrip(trip) {
   if (tripData.value?.id === trip.id) return;
   pauseSim();
-  boardingState.value = {};
 
   tripData.value  = trip;
   routeData.value = routeCache.value[trip.routeId] || null;
+  hydrateBoardingState(trip);
   roadPath.value  = [];
   wpIndices.value = [];
 
@@ -610,6 +610,26 @@ function openNavigation() {
 // ── US11.S1 — Per-student Boarding ────────────────────────────────────────
 const boardingState = ref({});  // { [childId]: 'ABORDADO' | 'AUSENTE' }
 
+function toBoardingUiState(state) {
+  if (state === 'BOARDED') return 'ABORDADO';
+  if (state === 'MISSING') return 'AUSENTE';
+  if (state === 'OMITTED') return 'EN_ESPERA';
+  return state || null;
+}
+
+function hydrateBoardingState(trip) {
+  const next = {};
+  for (const attendance of trip?.attendances || []) {
+    const status = toBoardingUiState(attendance.boardingState);
+    if (status && status !== 'EN_ESPERA') next[attendance.childId] = status;
+  }
+  boardingState.value = next;
+}
+
+function boardedCountFromState(state = boardingState.value) {
+  return Object.values(state).filter(s => s === 'ABORDADO').length;
+}
+
 const boardingStudents = computed(() => {
   if (!tripData.value?.studentIds) return [];
   return routeChildren.value
@@ -624,11 +644,18 @@ const boardingStudents = computed(() => {
 
 async function markBoarding(childId, status) {
   boardingState.value = { ...boardingState.value, [childId]: status };
-  const boarded = Object.values(boardingState.value).filter(s => s === 'ABORDADO').length;
+  const boarded = boardedCountFromState();
   if (tripData.value) {
     tripData.value = { ...tripData.value, studentsBoarded: boarded };
     try {
-      await tripApi.updateBoardingStatus(tripData.value.id, { childId, boardingState: status });
+      const response = await tripApi.updateBoardingStatus(tripData.value.id, { childId, boardingState: status });
+      if (response.trip) {
+        const persisted = enrichTrip(response.trip);
+        tripData.value = persisted;
+        hydrateBoardingState(persisted);
+        const idx = allTrips.value.findIndex(t => t.id === persisted.id);
+        if (idx !== -1) allTrips.value[idx] = persisted;
+      }
     } catch (error) {
       console.warn('Boarding status could not be persisted:', error);
     }
@@ -721,7 +748,9 @@ function enrichTrip(trip) {
   const route = routeCache.value[trip.routeId] || {};
   const driverId = trip.driverId || route.driverId;
   const driver = drivers.value.find(d => String(d.id) === String(driverId));
-  const studentIds = trip.studentIds?.length ? trip.studentIds : route.studentIds || [];
+  const studentIds = route.studentIds?.length ? route.studentIds : trip.studentIds?.length ? trip.studentIds : [];
+  const attendances = trip.attendances || [];
+  const persistedBoarded = attendances.filter(a => a.boardingState === 'BOARDED' || a.boardingState === 'ABORDADO').length;
 
   return {
     ...trip,
@@ -732,6 +761,7 @@ function enrichTrip(trip) {
     vehiclePlate: trip.vehiclePlate || route.vehiclePlate || '',
     studentIds,
     studentsTotal: trip.studentsTotal || studentIds.length,
+    studentsBoarded: attendances.length ? persistedBoarded : trip.studentsBoarded || 0,
     scheduledStartTime: trip.scheduledStartTime || route.scheduledStartTime || route.departureTime || '',
     tripType: trip.tripType || route.type || '',
   };
