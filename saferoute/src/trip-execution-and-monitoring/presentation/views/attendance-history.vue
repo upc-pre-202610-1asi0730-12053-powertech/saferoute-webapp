@@ -1,18 +1,62 @@
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useIamStore } from "../../../identity-and-access-management/application/iam.store.js";
-import seedData from "../../../server/db.json";
+import { TripApi } from "../../infrastructure/trip-api.js";
+import { StakeholderApi } from "../../../stakeholder-and-asset-management/infrastructure/stakeholder-api.js";
 
 const iamStore = useIamStore();
-const user     = iamStore.currentUser;
+const tripApi = new TripApi();
+const stakeholderApi = new StakeholderApi();
 
 // ── Resolve current parent's children ────────────────────────────────────────
-const myChildren = computed(() => {
-  const parents = seedData.parents || [];
-  const myParent = parents.find(p => p.email === user?.email);
-  if (!myParent) return seedData.children?.slice(0, 3) || [];
-  return (seedData.children || []).filter(c => c.parentId === myParent.id);
-});
+const myChildren = ref([]);
+const trips = ref([]);
+
+function getCurrentUser() {
+  if (iamStore.currentUser) return iamStore.currentUser;
+  try { return JSON.parse(localStorage.getItem('saferoute.user') || '{}'); }
+  catch { return {}; }
+}
+
+function sameId(a, b) {
+  return String(a || '').toLowerCase() === String(b || '').toLowerCase();
+}
+
+function personName(person) {
+  return person?.fullName || `${person?.firstName || ''} ${person?.lastName || ''}`.trim();
+}
+
+function isCurrentParent(parent, user) {
+  return sameId(parent.email, user?.email) || sameId(parent.userId, user?.id) || sameId(parent.id, user?.parentId);
+}
+
+async function loadAttendanceData() {
+  try {
+    const user = getCurrentUser();
+    const orgId = user?.organizationId;
+    const [parentsRes, tripsRes] = await Promise.all([
+      stakeholderApi.getParentsByOrganization(orgId),
+      tripApi.getTrips(orgId),
+    ]);
+
+    const parents = parentsRes.data || [];
+    const currentParent = parents.find(parent => isCurrentParent(parent, user)) ||
+      (user?.roleTier === 'PARENT' ? parents[0] : null);
+
+    myChildren.value = (currentParent?.children || []).map(child => ({
+      ...child,
+      parentId: currentParent.id,
+      childName: personName(child),
+    }));
+    trips.value = tripsRes.data || [];
+  } catch (error) {
+    console.warn('Attendance history could not be loaded:', error);
+    myChildren.value = [];
+    trips.value = [];
+  }
+}
+
+onMounted(loadAttendanceData);
 
 // ── Calendar state ────────────────────────────────────────────────────────────
 const today      = new Date();
@@ -25,35 +69,59 @@ const MONTH_NAMES = [
 ];
 const DAY_HEADERS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 
-// ── Mock attendance data (seeded from children list) ─────────────────────────
-// Generates deterministic records so the UI looks populated
-function buildMockAttendance() {
+// ── Attendance data built from persisted trip records ────────────────────────
+function formatDateKey(date) {
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+
+function parseTripDate(trip, attendanceRecord) {
+  const raw = attendanceRecord?.boardedAt || trip.startTime || trip.scheduledDate || trip.endTime;
+  const date = raw ? new Date(raw) : null;
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+}
+
+function formatTime(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+}
+
+function attendanceStatus(boardingState) {
+  if (boardingState === 'BOARDED' || boardingState === 'ABORDADO') return 'PRESENT';
+  if (boardingState === 'MISSING' || boardingState === 'AUSENTE') return 'ABSENT';
+  return 'LATE';
+}
+
+function buildAttendance() {
   const records = {};
-  const year = viewYear.value;
-  const month = viewMonth.value;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const childById = new Map(myChildren.value.map(child => [String(child.id), child]));
 
-  myChildren.value.forEach((child, ci) => {
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(year, month, d);
-      const dow  = date.getDay();
-      if (dow === 0 || dow === 6) continue; // skip weekends
-      if (date > today) continue;           // no future records
+  trips.value.forEach(trip => {
+    (trip.attendances || []).forEach(attendanceRecord => {
+      const child = childById.get(String(attendanceRecord.childId));
+      if (!child) return;
 
-      const key    = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const seed   = (ci * 31 + d * 7) % 10;
-      const status = seed < 7 ? 'PRESENT' : seed < 8 ? 'LATE' : 'ABSENT';
-      const checkIn  = status === 'PRESENT' ? '07:15' : status === 'LATE' ? '07:' + String(25 + (d % 15)).padStart(2,'0') : null;
-      const checkOut = status !== 'ABSENT' ? '14:' + String(30 + (d % 20)).padStart(2,'0') : null;
+      const date = parseTripDate(trip, attendanceRecord);
+      const key = formatDateKey(date);
+      if (!key) return;
 
+      const status = attendanceStatus(attendanceRecord.boardingState);
       if (!records[key]) records[key] = [];
-      records[key].push({ childId: child.id, childName: child.fullName || child.name || `Alumno ${ci+1}`, status, checkIn, checkOut });
-    }
+      records[key].push({
+        childId: child.id,
+        childName: child.childName || personName(child) || 'Alumno',
+        status,
+        checkIn: status !== 'ABSENT' ? formatTime(attendanceRecord.boardedAt || trip.startTime) : null,
+        checkOut: status !== 'ABSENT' ? formatTime(trip.endTime) : null,
+      });
+    });
   });
   return records;
 }
 
-const attendance = computed(() => buildMockAttendance());
+const attendance = computed(() => buildAttendance());
 
 // ── Calendar grid ─────────────────────────────────────────────────────────────
 const calendarDays = computed(() => {

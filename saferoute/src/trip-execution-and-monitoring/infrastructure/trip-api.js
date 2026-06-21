@@ -80,6 +80,10 @@ function toServerBoardingState(state) {
     return state;
 }
 
+function isBoarded(state) {
+    return state === 'BOARDED' || state === 'ABORDADO';
+}
+
 function toUiAttendance(attendance, tripId) {
     return {
         ...attendance,
@@ -103,7 +107,10 @@ function toUiTrip(resource, fallback = {}) {
     const incidents = (resource?.incidents || []).map(incident => toUiIncident(incident, resource.id));
     const uiState = toUiTripState(resource?.tripState || resource?.status || fallback.tripState || fallback.status);
     const studentIds = cached.studentIds || fallback.studentIds || attendances.map(a => a.childId);
-    const studentsBoarded = cached.studentsBoarded ?? attendances.filter(a => a.boardingState === 'BOARDED').length;
+    const persistedBoarded = attendances.filter(a => isBoarded(a.boardingState)).length;
+    const studentsBoarded = attendances.length
+        ? persistedBoarded
+        : cached.studentsBoarded ?? fallback.studentsBoarded ?? 0;
 
     return {
         ...fallback,
@@ -234,7 +241,7 @@ export class TripApi extends BaseApi {
             boardedAt: new Date().toISOString(),
         };
         saveTripUiState(tripId, trip);
-        return { ...response, data: attendance };
+        return { ...response, data: attendance, trip };
     }
 
     async getAttendancesByTrip(tripId) {
