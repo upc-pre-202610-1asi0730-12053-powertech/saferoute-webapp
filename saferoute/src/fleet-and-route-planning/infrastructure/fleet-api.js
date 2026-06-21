@@ -261,6 +261,16 @@ export class FleetApi extends BaseApi {
         return this.#vehiclesEndpoint.create(request);
     }
 
+    updateVehicle(id, request) {
+        if (useFakeAuth) return Promise.resolve({ status: 200, data: { ...request, id } });
+        return this.#vehiclesEndpoint.update(id, request);
+    }
+
+    deleteVehicle(id) {
+        if (useFakeAuth) return Promise.resolve({ status: 204, data: {} });
+        return this.#vehiclesEndpoint.delete(id);
+    }
+
     async getVehiclesByOrganization(organizationId) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: mockVehicles() });
         const response = await this.#vehiclesEndpoint.getAll();
@@ -331,15 +341,16 @@ export class FleetApi extends BaseApi {
     async updateRoute(resource) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: resource });
         saveRouteUiState(resource.id, resource);
-        return Promise.resolve({ status: 200, data: toUiRoute({ id: resource.id, ...resource }, resource) });
+        const response = await this.#routesEndpoint.update(resource.id, resource);
+        return { ...response, data: toUiRoute(response.data, resource) };
     }
 
-    deleteRoute(id) {
+    async deleteRoute(id) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: {} });
         const state = readRouteUiState();
         delete state[id];
         localStorage.setItem(routeUiStateKey(), JSON.stringify(state));
-        return Promise.resolve({ status: 204, data: {} });
+        return this.#routesEndpoint.delete(id);
     }
 }
 
