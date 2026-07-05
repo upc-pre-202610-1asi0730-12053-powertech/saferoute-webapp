@@ -214,7 +214,7 @@ onMounted(loadDashboardData);
   display: inline-flex;
   align-items: center;
   background: rgb(22 48 90);
-  color: var(--dark);
+  color: white;
   padding: 0.3rem 0.85rem;
   border-radius: 999px;
   font-size: 0.875rem;
