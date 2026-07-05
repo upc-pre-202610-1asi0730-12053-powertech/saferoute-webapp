@@ -10,6 +10,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { TripApi }  from '../../infrastructure/trip-api.js';
 import { RouteApi } from '../../../fleet-and-route-planning/infrastructure/route-api.js';
+import { NotificationsApi } from '../../../notifications-and-communication/infrastructure/notification-api.js';
 import { useIamStore } from '../../../identity-and-access-management/application/iam.store.js';
 import { fetchRoadRoute } from '../../../shared/infrastructure/ors.js';
 
@@ -22,6 +23,7 @@ const confirm  = useConfirm();
 const toast    = useToast();
 const tripApi  = new TripApi();
 const routeApi = new RouteApi();
+const notificationsApi = new NotificationsApi();
 const iamStore = useIamStore();
 
 // ── State ──────────────────────────────────────────────────────────────────
@@ -576,6 +578,43 @@ function sosEnd() {
     toast.add({ severity: 'info', summary: 'Cancelado', detail: 'Mantén 3 segundos para activar el SOS.', life: 2000 });
   }
 }
+function tripStudentIds() {
+  return tripData.value?.studentIds?.length
+    ? tripData.value.studentIds
+    : routeData.value?.studentIds || [];
+}
+
+function parentIdForCurrentTrip() {
+  const studentIds = tripStudentIds();
+  const child = routeChildren.value.find(item =>
+    studentIds.some(studentId => String(studentId) === String(item.id))
+  );
+  return child?.parentId || null;
+}
+
+async function persistSosNotification(description) {
+  const organizationId = tripData.value?.organizationId || iamStore.currentUser?.organizationId;
+  const parentId = parentIdForCurrentTrip();
+  const tripId = tripData.value?.id;
+  if (!organizationId || !parentId || !tripId) return null;
+
+  const response = await notificationsApi.createNotification({
+    organizationId,
+    parentId,
+    tripId,
+    category: 'SOS',
+    message: description,
+  });
+
+  const notificationId = response.data?.id;
+  if (notificationId) {
+    notificationsApi.triggerAlert({ notificationId, panic: true })
+      .catch(error => console.warn('SOS alert flag could not be persisted:', error));
+  }
+
+  return response.data;
+}
+
 async function triggerSOS() {
   clearInterval(sosProgressTimer);
   sosHolding.value  = false;
@@ -584,7 +623,15 @@ async function triggerSOS() {
   const wp  = waypoints.value[Math.max(0, currentWpIdx.value)];
   const description = `SOS activado por ${iamStore.currentUser?.firstName || 'Conductor'}. Ubicacion: ${wp?.name || tripData.value?.currentStop || 'En ruta'}. Coord: ${wp?.lat ?? '-'}, ${wp?.lng ?? '-'}`;
   try {
-    if (tripData.value?.id) await tripApi.reportIncident(tripData.value.id, { description });
+    const persistedAlert = await persistSosNotification(description);
+    if (tripData.value?.id && isEnRoute.value) {
+      try {
+        await tripApi.reportIncident(tripData.value.id, { description });
+      } catch (incidentError) {
+        console.warn('SOS incident could not be persisted:', incidentError);
+      }
+    }
+    if (!persistedAlert && !isEnRoute.value) throw new Error('SOS alert requires a parent and an active trip');
     toast.add({ severity: 'error', summary: 'SOS ACTIVADO', detail: 'Alerta enviada con coordenadas GPS. Central notificada.', life: 10000 });
   } catch (error) {
     console.warn('SOS report could not be persisted:', error);
