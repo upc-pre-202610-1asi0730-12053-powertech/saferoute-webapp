@@ -608,8 +608,7 @@ async function persistSosNotification(description) {
 
   const notificationId = response.data?.id;
   if (notificationId) {
-    notificationsApi.triggerAlert({ notificationId, panic: true })
-      .catch(error => console.warn('SOS alert flag could not be persisted:', error));
+    await notificationsApi.triggerAlert({ notificationId, panic: true });
   }
 
   return response.data;
