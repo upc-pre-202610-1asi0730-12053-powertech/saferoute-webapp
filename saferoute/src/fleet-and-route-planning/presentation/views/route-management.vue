@@ -382,12 +382,37 @@ watch(showDialog, (val) => {
 async function loadRoutes() {
   loading.value = true;
   const res = await api.getRoutes(iamStore.currentUser?.organizationId);
-  const all  = res.data || [];
+  const all  = (res.data || []).map(normalizeLoadedRoute);
   // DRIVER only sees their own routes; ADMIN/others see all.
   routes.value = isDriver.value
     ? all.filter(r => r.driverId === currentDriverId.value)
     : all;
   loading.value = false;
+}
+
+function normalizeLoadedRoute(route) {
+  const driver = driverOptions.value.find(driver => driver.value === String(route.driverId));
+  const vehicle = vehicleOptions.value.find(vehicle => vehicle.value === String(route.vehicleId));
+  const studentIds = (route.studentIds || []).map(String);
+  const waypoints = (route.waypoints || []).map((waypoint, index) => ({
+    ...waypoint,
+    studentIds: waypoint.studentIds?.length
+      ? waypoint.studentIds.map(String)
+      : index === 0
+        ? studentIds
+        : [],
+  }));
+
+  return {
+    ...route,
+    type: route.type || (route.scheduledStartTime >= '12:00' ? 'RETURN' : 'OUTBOUND'),
+    driverId: route.driverId ? String(route.driverId) : null,
+    driverName: route.driverName || driver?.name || '',
+    vehicleId: route.vehicleId ? String(route.vehicleId) : null,
+    vehiclePlate: route.vehiclePlate || vehicle?.plate || '',
+    studentIds,
+    waypoints,
+  };
 }
 
 function selectRoute(route) {

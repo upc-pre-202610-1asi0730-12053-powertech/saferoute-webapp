@@ -81,6 +81,7 @@ function toUiRoute(resource, fallback = {}) {
     const assignment = resource?.assignment || {};
     const vehicle = resource?.vehicle || {};
     const stops = resource?.stops || [];
+    const childIds = assignment.childIds || cached.studentIds || fallback.studentIds || [];
     const cachedWaypoints = cached.waypoints || fallback.waypoints || [];
     const waypoints = stops.length
         ? stops.map((stop, index) => ({
@@ -89,10 +90,15 @@ function toUiRoute(resource, fallback = {}) {
             lat: stop.latitude,
             lng: stop.longitude,
             order: stop.order ?? index + 1,
-            studentIds: cachedWaypoints[index]?.studentIds || [],
+            studentIds: cachedWaypoints[index]?.studentIds?.length
+                ? cachedWaypoints[index].studentIds
+                : index === 0
+                    ? childIds
+                    : [],
         }))
         : cachedWaypoints;
-    const childIds = assignment.childIds || cached.studentIds || fallback.studentIds || [];
+    const inferredType = (resource?.departureTime || fallback.departureTime || cached.scheduledStartTime || '')
+        >= '12:00' ? 'RETURN' : 'OUTBOUND';
 
     return {
         ...fallback,
@@ -110,7 +116,7 @@ function toUiRoute(resource, fallback = {}) {
         driverId: assignment.driverId || fallback.driverId || null,
         driverName: cached.driverName || fallback.driverName || '',
         studentIds: childIds,
-        type: cached.type || fallback.type || '',
+        type: cached.type || fallback.type || resource?.type || inferredType,
         origin: cached.origin || fallback.origin || waypoints[0]?.name || '',
         destination: cached.destination || fallback.destination || waypoints[waypoints.length - 1]?.name || '',
         waypoints,
