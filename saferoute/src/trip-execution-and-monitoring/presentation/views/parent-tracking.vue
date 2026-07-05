@@ -22,22 +22,27 @@ const routeApi = new RouteApi();
 const stakeholderApi = new StakeholderApi();
 
 // ── Route simulation data ──────────────────────────────────────────────────
-let ROUTE_PATH = [
+const DEFAULT_ROUTE_PATH = [
   [-12.046374, -77.042793],
   [-12.052000, -77.035000],
   [-12.060000, -77.030000],
   [-12.068000, -77.022000],
   [-12.075000, -77.015000],   // HOME_POSITION
 ];
+let ROUTE_PATH = [...DEFAULT_ROUTE_PATH];
 let HOME_POSITION = ROUTE_PATH[ROUTE_PATH.length - 1];
 const PROXIMITY_THRESHOLD_M = 500;
-const STEP_INTERVAL_MS = 4000; // ms between route steps
+const STEP_INTERVAL_MS = 1500; // compressed cadence for demo playback
+const SIMULATION_STEP_METERS = 650;
+const ETA_AVERAGE_SPEED_KMH = 24;
 
 // ── State ──────────────────────────────────────────────────────────────────
 const busStepIdx       = ref(0);
+const simulationStepIdx = ref(0);
 const busPos           = ref(ROUTE_PATH[0]);
 const busInfo          = ref({ driver: 'Conductor asignado', route: 'Ruta asignada', vehiclePlate: 'Sin placa' });
 const routeTimeline    = ref([]);
+const hasRoutePath     = ref(false);
 
 // US19 — Proximity alert
 const proximityAlert   = ref(false);   // triggered when < 500 m
@@ -59,14 +64,21 @@ const statusLabel = computed(() => ({
 
 const etaLabel = computed(() => {
   if (arrivalConfirmed.value) return arrivalTime.value;
-  const stepsLeft = ROUTE_PATH.length - 1 - busStepIdx.value;
-  const mins = Math.round((stepsLeft * STEP_INTERVAL_MS) / 60000);
+  if (!hasRoutePath.value) return 'Sin ruta';
+  const remainingMeters = remainingDistance(simulationPath, simulationStepIdx.value);
+  const metersPerMinute = (ETA_AVERAGE_SPEED_KMH * 1000) / 60;
+  const mins = Math.round(remainingMeters / metersPerMinute);
   if (mins <= 0) return 'Llegando…';
   return `~${mins} min`;
 });
 
 // ── Timeline (reactive) ────────────────────────────────────────────────────
 const timeline = computed(() => {
+  if (!routeTimeline.value.length) {
+    return [
+      { time: '', event: 'Ruta pendiente de asignacion', done: false, icon: 'pi pi-map-marker' },
+    ];
+  }
   if (routeTimeline.value.length) {
     return routeTimeline.value.map((item, index) => ({
       ...item,
@@ -88,10 +100,98 @@ let map         = null;
 let busMarker   = null;
 let simTimer    = null;
 let roadPath    = ROUTE_PATH;   // will be replaced by ORS result
+let simulationPath = ROUTE_PATH;
 let routeLine   = null;
 
 function personName(person) {
   return person?.fullName || `${person?.firstName || ''} ${person?.lastName || ''}`.trim();
+}
+
+function sameId(left, right) {
+  return left != null && right != null && String(left) === String(right);
+}
+
+function listHasId(list, id) {
+  return (list || []).some(item => sameId(item, id));
+}
+
+function calcDistance(a, b) {
+  // Haversine in metres
+  const R = 6371000;
+  const dLat = (b[0] - a[0]) * Math.PI / 180;
+  const dLng = (b[1] - a[1]) * Math.PI / 180;
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const c = sinLat * sinLat + Math.cos(a[0] * Math.PI / 180) * Math.cos(b[0] * Math.PI / 180) * sinLng * sinLng;
+  return R * 2 * Math.atan2(Math.sqrt(c), Math.sqrt(1 - c));
+}
+
+function interpolatePoint(start, end, ratio) {
+  return [
+    start[0] + ((end[0] - start[0]) * ratio),
+    start[1] + ((end[1] - start[1]) * ratio),
+  ];
+}
+
+function buildSimulationPath(path) {
+  if (!path.length) return [];
+  const points = [path[0]];
+  let lastPoint = path[0];
+  let carryMeters = 0;
+
+  for (let index = 0; index < path.length - 1; index += 1) {
+    let start = path[index];
+    const end = path[index + 1];
+    let segmentMeters = calcDistance(start, end);
+
+    while (carryMeters + segmentMeters >= SIMULATION_STEP_METERS) {
+      const distanceToNextPoint = SIMULATION_STEP_METERS - carryMeters;
+      const ratio = segmentMeters > 0 ? distanceToNextPoint / segmentMeters : 1;
+      const nextPoint = interpolatePoint(start, end, ratio);
+      points.push(nextPoint);
+      lastPoint = nextPoint;
+      start = nextPoint;
+      segmentMeters = calcDistance(start, end);
+      carryMeters = 0;
+    }
+
+    carryMeters += calcDistance(lastPoint, end);
+    lastPoint = end;
+  }
+
+  if (!sameId(points[points.length - 1]?.join(','), path[path.length - 1]?.join(','))) {
+    points.push(path[path.length - 1]);
+  }
+
+  return points;
+}
+
+function remainingDistance(path, startIndex) {
+  if (!path.length) return 0;
+  let meters = 0;
+  for (let index = startIndex; index < path.length - 1; index += 1) {
+    meters += calcDistance(path[index], path[index + 1]);
+  }
+  return meters;
+}
+
+function completedStopIndex() {
+  if (ROUTE_PATH.length <= 1 || simulationPath.length <= 1) return 0;
+  const progress = simulationStepIdx.value / (simulationPath.length - 1);
+  return Math.min(ROUTE_PATH.length - 1, Math.floor(progress * (ROUTE_PATH.length - 1)));
+}
+
+function setSimulationPath(path, options = {}) {
+  const previousLastIndex = Math.max(1, simulationPath.length - 1);
+  const progress = options.preserveProgress ? simulationStepIdx.value / previousLastIndex : 0;
+  simulationPath = buildSimulationPath(path);
+  simulationStepIdx.value = Math.min(
+    Math.max(0, Math.round(progress * Math.max(0, simulationPath.length - 1))),
+    Math.max(0, simulationPath.length - 1),
+  );
+  busStepIdx.value = completedStopIndex();
+  busPos.value = simulationPath[simulationStepIdx.value] || ROUTE_PATH[0];
+  proximityDist.value = hasRoutePath.value ? Math.round(remainingDistance(simulationPath, simulationStepIdx.value)) : null;
 }
 
 function useRoutePath(route) {
@@ -102,8 +202,8 @@ function useRoutePath(route) {
   ROUTE_PATH = waypoints.map(wp => [Number(wp.lat), Number(wp.lng)]);
   HOME_POSITION = ROUTE_PATH[ROUTE_PATH.length - 1];
   roadPath = ROUTE_PATH;
-  busStepIdx.value = 0;
-  busPos.value = ROUTE_PATH[0];
+  hasRoutePath.value = true;
+  setSimulationPath(ROUTE_PATH);
   routeTimeline.value = waypoints.map((wp, index) => ({
     time: index === 0 ? (route?.scheduledStartTime || route?.departureTime || '') : '',
     event: index === 0 ? `Inicio - ${wp.name}` : index === waypoints.length - 1 ? `Destino - ${wp.name}` : wp.name,
@@ -126,20 +226,25 @@ async function loadTrackingData() {
 
     const parent = (parentsRes.data || []).find(p => p.userId === iamStore.currentUser?.id || p.email === iamStore.currentUser?.email);
     const childIds = (parent?.children || []).map(child => child.id);
+    const routes = routesRes.data || [];
     const trips = tripsRes.data || [];
+    const routeForChild = routes.find(route => childIds.some(id => listHasId(route.studentIds, id)));
+    const matchesChild = trip => childIds.some(id => listHasId(trip.studentIds, id));
+    const isEnRoute = trip => (trip.status || trip.tripState) === 'EN_ROUTE';
     const selectedTrip =
-      trips.find(trip => trip.status === 'EN_ROUTE' && childIds.some(id => (trip.studentIds || []).includes(id))) ||
-      trips.find(trip => childIds.some(id => (trip.studentIds || []).includes(id))) ||
-      trips.find(trip => trip.status === 'EN_ROUTE') ||
+      trips.find(trip => isEnRoute(trip) && matchesChild(trip)) ||
+      trips.find(matchesChild) ||
+      trips.find(trip => routeForChild && sameId(trip.routeId, routeForChild.id)) ||
+      trips.find(isEnRoute) ||
       trips[0];
-    const route = (routesRes.data || []).find(item => item.id === selectedTrip?.routeId);
+    const route = routes.find(item => sameId(item.id, selectedTrip?.routeId)) || routeForChild || routes[0];
     const driver = (driversRes.data || []).find(item => String(item.id) === String(selectedTrip?.driverId || route?.driverId));
 
     if (route) useRoutePath(route);
     busInfo.value = {
       driver: personName(driver) || selectedTrip?.driverName || route?.driverName || 'Conductor asignado',
       route: selectedTrip?.routeName || route?.name || 'Ruta asignada',
-      vehiclePlate: selectedTrip?.vehiclePlate || route?.vehiclePlate || 'Sin placa',
+      vehiclePlate: selectedTrip?.vehiclePlate || route?.vehiclePlate || route?.vehicle?.plate || 'Sin placa',
     };
   } catch (error) {
     console.warn('Parent tracking data could not be loaded from backend:', error);
@@ -177,6 +282,10 @@ async function loadRoadRoute() {
     const wps = ROUTE_PATH.map(([lat, lng]) => ({ lat, lng }));
     const { path } = await fetchRoadRoute(wps);
     roadPath = path;
+    if (hasRoutePath.value) {
+      setSimulationPath(path, { preserveProgress: true });
+      busMarker?.setLatLng(busPos.value);
+    }
     if (map && routeLine) {
       map.removeLayer(routeLine);
       routeLine = L.polyline(path, { color: '#FFB74D', weight: 4, opacity: 0.9 }).addTo(map);
@@ -190,24 +299,16 @@ async function loadRoadRoute() {
 }
 
 // ── Simulation ─────────────────────────────────────────────────────────────
-function calcDistance(a, b) {
-  // Haversine in metres
-  const R = 6371000;
-  const dLat = (b[0] - a[0]) * Math.PI / 180;
-  const dLng = (b[1] - a[1]) * Math.PI / 180;
-  const sinLat = Math.sin(dLat / 2);
-  const sinLng = Math.sin(dLng / 2);
-  const c = sinLat * sinLat + Math.cos(a[0] * Math.PI / 180) * Math.cos(b[0] * Math.PI / 180) * sinLng * sinLng;
-  return R * 2 * Math.atan2(Math.sqrt(c), Math.sqrt(1 - c));
-}
-
 function advanceBus() {
-  const next = busStepIdx.value + 1;
-  if (next >= ROUTE_PATH.length) {
+  if (!hasRoutePath.value) return;
+
+  const next = simulationStepIdx.value + 1;
+  if (next >= simulationPath.length) {
     // US20 — Arrival confirmation
     if (!arrivalConfirmed.value) {
       arrivalConfirmed.value = true;
       proximityAlert.value   = false;
+      proximityDist.value    = 0;
       const now = new Date();
       arrivalTime.value = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
       busMarker?.setLatLng(HOME_POSITION);
@@ -216,13 +317,14 @@ function advanceBus() {
     return;
   }
 
-  busStepIdx.value = next;
-  busPos.value     = ROUTE_PATH[next];
-  busMarker?.setLatLng(ROUTE_PATH[next]);
-  map?.panTo(ROUTE_PATH[next], { animate: true, duration: 0.5 });
+  simulationStepIdx.value = next;
+  busStepIdx.value = completedStopIndex();
+  busPos.value = simulationPath[next];
+  busMarker?.setLatLng(simulationPath[next]);
+  map?.panTo(simulationPath[next], { animate: true, duration: 0.5 });
 
   // US19 — Proximity detection
-  const dist = calcDistance(ROUTE_PATH[next], HOME_POSITION);
+  const dist = remainingDistance(simulationPath, next);
   proximityDist.value = Math.round(dist);
   if (dist <= PROXIMITY_THRESHOLD_M && !proximityAlert.value && !arrivalConfirmed.value) {
     proximityAlert.value = true;
