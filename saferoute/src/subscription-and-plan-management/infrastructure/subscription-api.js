@@ -1,14 +1,12 @@
 import { BaseApi } from "../../shared/infrastructure/base-api.js";
 import { BaseEndpoint } from "../../shared/infrastructure/base-endpoint.js";
-import seedData from '../../server/db.json';
 
 const useFakeAuth = String(import.meta.env.VITE_USE_FAKE_AUTH).toLowerCase() === 'true';
 const MOCK_SUBS_KEY = 'saferoute.mock.subscriptions';
 
-function mockPlans() { return seedData.plans; }
+function mockPlans() { return []; }
 function mockSubs() {
-    const extra = JSON.parse(localStorage.getItem(MOCK_SUBS_KEY) || '[]');
-    return [...seedData.subscriptions, ...extra];
+    return JSON.parse(localStorage.getItem(MOCK_SUBS_KEY) || '[]');
 }
 
 const plansEndpointPath         = import.meta.env.VITE_PLANS_ENDPOINT_PATH         || '/plans';
@@ -82,8 +80,7 @@ export class SubscriptionApi extends BaseApi {
             const idx  = list.findIndex(s => s.id === id);
             if (idx !== -1) {
                 list[idx] = { ...list[idx], planId };
-                const extra = list.filter(s => !seedData.subscriptions.find(x => x.id === s.id));
-                localStorage.setItem(MOCK_SUBS_KEY, JSON.stringify(extra));
+                localStorage.setItem(MOCK_SUBS_KEY, JSON.stringify(list));
                 return Promise.resolve({ status: 200, data: list[idx] });
             }
         }
@@ -96,8 +93,7 @@ export class SubscriptionApi extends BaseApi {
             const idx  = list.findIndex(s => s.id === id);
             if (idx !== -1) {
                 list[idx] = { ...list[idx], state: 'CANCELLED' };
-                const extra = list.filter(s => !seedData.subscriptions.find(x => x.id === s.id));
-                localStorage.setItem(MOCK_SUBS_KEY, JSON.stringify(extra));
+                localStorage.setItem(MOCK_SUBS_KEY, JSON.stringify(list));
                 return Promise.resolve({ status: 200, data: list[idx] });
             }
         }

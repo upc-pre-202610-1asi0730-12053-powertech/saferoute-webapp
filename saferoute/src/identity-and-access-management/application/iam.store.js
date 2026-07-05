@@ -60,20 +60,14 @@ export const useIamStore = defineStore('identity-and-access-management', () => {
     }
 
     /**
-     * Normalizes the response from either json-server or the real backend.
+     * Extracts the token and user resource from the backend sign-in response.
      * @param {Object} data - Raw response data.
      * @returns {{token: string, userResource: ?Object}}
      */
     function parseSignInResponse(data) {
-        
-        if (Array.isArray(data)) {
-            if (data.length === 0) return { token: null, userResource: null };
-            return { token: `dev-token-${data[0].id}`, userResource: data[0] };
-        }
-        
         if (data && typeof data === 'object') {
             const userResource = data.user || data;
-            const token = data.token || data.accessToken || `dev-token-${userResource.id}`;
+            const token = data.token || data.accessToken || null;
             return { token, userResource };
         }
         return { token: null, userResource: null };

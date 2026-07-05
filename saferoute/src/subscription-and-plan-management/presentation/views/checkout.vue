@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { SubscriptionApi } from "../../infrastructure/subscription-api.js";
+import { useSubscriptionStore } from "../../application/subscription.store.js";
 
 const route  = useRoute();
 const router = useRouter();
@@ -19,13 +20,20 @@ const status   = ref('idle');   // 'idle' | 'success' | 'error' | 'cancelled'
 const sdkReady = ref(false);
 let   scriptEl = null;
 
+// Seeded plan identifiers on the backend (fallback when the catalog has not loaded).
 const TIER_TO_PLAN_ID = {
-  BASIC:        'plan-basic',
-  INTERMEDIATE: 'plan-intermediate',
-  COMPLETE:     'plan-complete',
+  BASIC:        'c0000000-0000-0000-0000-000000000001',
+  INTERMEDIATE: 'c0000000-0000-0000-0000-000000000002',
+  COMPLETE:     'c0000000-0000-0000-0000-000000000003',
 };
 
 const subscriptionApi = new SubscriptionApi();
+const subscriptionStore = useSubscriptionStore();
+
+function resolvePlanId() {
+  const plan = subscriptionStore.plans.find(p => p.planTier === planTier);
+  return plan?.id || TIER_TO_PLAN_ID[planTier] || planTier;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function numericPrice() {
@@ -70,7 +78,7 @@ function renderButtons() {
           const now = new Date();
           await subscriptionApi.createSubscription({
             organizationId: orgId,
-            planId:    TIER_TO_PLAN_ID[planTier] || planTier,
+            planId:    resolvePlanId(),
             planTier,
             state:     'ACTIVE',
             startDate: now.toISOString(),
@@ -94,6 +102,7 @@ function renderButtons() {
 }
 
 onMounted(async () => {
+  subscriptionStore.loadPlans().catch(() => {});
   try {
     await loadPaypalSdk();
     sdkReady.value = true;

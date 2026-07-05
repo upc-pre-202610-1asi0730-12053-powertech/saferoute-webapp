@@ -1,6 +1,5 @@
 import {BaseApi} from "../../shared/infrastructure/base-api.js";
 import {BaseEndpoint} from "../../shared/infrastructure/base-endpoint.js";
-import seedData from '../../server/db.json';
 
 const endpointPath = import.meta.env.VITE_NOTIFICATION_ENDPOINT_PATH || '/notifications';
 const useFakeAuth  = String(import.meta.env.VITE_USE_FAKE_AUTH).toLowerCase() === 'true';
@@ -14,9 +13,8 @@ function mockAlertKey() { return `saferoute.mock.alerts.${getCurrentOrgId() || '
 function mockAnnouncementKey() { return `saferoute.mock.announcements.${getCurrentOrgId() || 'default'}`; }
 function mockNotificationKey() { return `saferoute.mock.notifications.${getCurrentOrgId() || 'default'}`; }
 
-function mockNotifications(orgId) {
-    const id = orgId || getCurrentOrgId();
-    return id ? seedData.notifications.filter(n => n.organizationId === id) : [];
+function mockNotifications() {
+    return [];
 }
 
 function mockAlerts() { return JSON.parse(localStorage.getItem(mockAlertKey()) || '[]'); }

@@ -1,6 +1,5 @@
 import { BaseApi } from "../../shared/infrastructure/base-api.js";
 import { BaseEndpoint } from "../../shared/infrastructure/base-endpoint.js";
-import seedData from '../../server/db.json';
 
 const endpointPath = import.meta.env.VITE_TRIP_ENDPOINT_PATH || '/trips';
 const useFakeAuth  = String(import.meta.env.VITE_USE_FAKE_AUTH).toLowerCase() === 'true';
@@ -21,8 +20,7 @@ function getState() { return JSON.parse(localStorage.getItem(stateKey()) || '{}'
 function mockTrips(orgId) {
     const id    = orgId || getCurrentOrgId();
     const state = getState();
-    const seed  = id ? seedData.trips.filter(t => t.organizationId === id) : [];
-    const base  = [...seed, ...getExtra()];
+    const base  = id ? getExtra() : [];
     return base.map(t => state[t.id] ? { ...t, ...state[t.id] } : t);
 }
 

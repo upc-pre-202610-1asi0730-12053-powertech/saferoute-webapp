@@ -6,7 +6,6 @@ import { useToast } from 'primevue/usetoast';
 import { useIamStore } from '../../../identity-and-access-management/application/iam.store.js';
 import { StakeholderApi } from '../../infrastructure/stakeholder-api.js';
 import { RouteApi } from '../../../fleet-and-route-planning/infrastructure/route-api.js';
-import seedData from '../../../server/db.json';
 
 const route    = useRoute();
 const confirm  = useConfirm();
@@ -18,9 +17,8 @@ const routeApi = new RouteApi();
 /* ── Org-scoped localStorage helpers ────────────────────────── */
 const orgId = iamStore.currentUser?.organizationId;
 
-// Seed data comes from db.json, filtered to the current org
-const SEED_PARENTS  = seedData.parents.filter(p => p.organizationId === orgId);
-const SEED_CHILDREN = seedData.children.filter(c => c.organizationId === orgId);
+const SEED_PARENTS  = [];
+const SEED_CHILDREN = [];
 
 const PARENTS_KEY  = `saferoute.mock.parents.${orgId  || 'default'}`;
 const CHILDREN_KEY = `saferoute.mock.children.${orgId || 'default'}`;
@@ -370,19 +368,11 @@ const FLEET_KEY   = `saferoute.fleet.${orgId || 'default'}`;
 
 function loadDrivers() {
   const stored = localStorage.getItem(DRIVERS_KEY);
-  if (stored !== null) return JSON.parse(stored);
-  if (!orgId) return [];
-  return seedData.profiles
-    .filter(p => p.organizationId === orgId && p.role === 'driver')
-    .map(p => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, license: p.license || '', vehicle_id: p.vehicleId || null, status: p.status === 'ACTIVE' }));
+  return stored !== null ? JSON.parse(stored) : [];
 }
 function loadFleet() {
   const stored = localStorage.getItem(FLEET_KEY);
-  if (stored !== null) return JSON.parse(stored);
-  if (!orgId) return [];
-  return seedData.vehicles
-    .filter(v => v.organizationId === orgId)
-    .map(v => ({ id: v.id, plate: v.plate, model: v.model, capacity: v.capacity, status: v.status === 'ACTIVE' }));
+  return stored !== null ? JSON.parse(stored) : [];
 }
 function saveDrivers(list) { localStorage.setItem(DRIVERS_KEY, JSON.stringify(list)); }
 function saveFleet(list)   { localStorage.setItem(FLEET_KEY,   JSON.stringify(list)); }

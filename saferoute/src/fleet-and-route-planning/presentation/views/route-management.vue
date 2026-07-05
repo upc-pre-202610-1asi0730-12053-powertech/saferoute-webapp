@@ -12,7 +12,6 @@ import { TripApi }  from '../../../trip-execution-and-monitoring/infrastructure/
 import { fetchRoadRoute } from '../../../shared/infrastructure/ors.js';
 import { useIamStore } from '../../../identity-and-access-management/application/iam.store.js';
 import { useSubscriptionStore } from '../../../subscription-and-plan-management/application/subscription.store.js';
-import seedData from '../../../server/db.json';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow });
@@ -55,33 +54,22 @@ async function loadOrgOptions() {
         .map(c => ({ label: `${c.fullName || `${c.firstName} ${c.lastName}`} (${c.age ?? '-'})`, value: String(c.id), name: c.fullName || `${c.firstName} ${c.lastName}`, grade: c.age ?? '' }));
     return;
   } catch (error) {
-    console.warn('Backend reference data failed, using local seed data:', error);
+    console.warn('Backend reference data failed, using locally stored data:', error);
   }
 
-  // Drivers: seed filtered by org + localStorage extra
-  const seedDrivers = orgId
-      ? seedData.profiles.filter(p => p.organizationId === orgId && p.role === 'driver' && p.status === 'ACTIVE')
-      : [];
+  // Fallback: locally stored data only (backend unreachable).
   const extraDrivers = JSON.parse(localStorage.getItem(`saferoute.mock.profiles.${orgId || 'default'}`) || '[]')
       .filter(p => p.role === 'driver');
-  driverOptions.value = [...seedDrivers, ...extraDrivers]
+  driverOptions.value = extraDrivers
       .map(p => ({ label: `${p.firstName} ${p.lastName}`, value: String(p.id), name: `${p.firstName} ${p.lastName}`, userId: p.userId, email: p.email }));
   currentDriverId.value = driverOptions.value.find(d => d.userId === userId.value || d.email === iamStore.currentUser?.email)?.value || null;
 
-  // Vehicles: seed filtered by org + localStorage extra
-  const seedVehicles = orgId
-      ? seedData.vehicles.filter(v => v.organizationId === orgId && v.status === 'ACTIVE')
-      : [];
   const extraVehicles = JSON.parse(localStorage.getItem(`saferoute.mock.vehicles.${orgId || 'default'}`) || '[]');
-  vehicleOptions.value = [...seedVehicles, ...extraVehicles]
+  vehicleOptions.value = extraVehicles
       .map(v => ({ label: `${v.plate} — ${v.model}`, value: v.id, plate: v.plate }));
 
-  // Students (children): seed filtered by org + localStorage extra
-  const seedChildren = orgId
-      ? seedData.children.filter(c => c.organizationId === orgId && c.status !== false)
-      : [];
   const extraChildren = JSON.parse(localStorage.getItem(`saferoute.mock.children.${orgId || 'default'}`) || '[]');
-  studentOptions.value = [...seedChildren, ...extraChildren]
+  studentOptions.value = extraChildren
       .filter(c => c.status !== false)
       .map(c => ({ label: `${c.name} (${c.grade})`, value: c.id, name: c.name, grade: c.grade }));
 }

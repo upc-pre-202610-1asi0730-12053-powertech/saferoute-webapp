@@ -1,6 +1,5 @@
 import { BaseApi } from "../../shared/infrastructure/base-api.js";
 import { BaseEndpoint } from "../../shared/infrastructure/base-endpoint.js";
-import seedData from '../../server/db.json';
 
 const profilesEndpointPath = import.meta.env.VITE_STAKEHOLDER_ENDPOINT_PATH || '/profiles';
 const parentsEndpointPath  = '/parents';
@@ -19,19 +18,15 @@ function mockGroupKey() { return `saferoute.mock.groups.${getCurrentOrgId() || '
 function mockProfiles(orgId) {
     const id    = orgId || getCurrentOrgId();
     const extra = JSON.parse(localStorage.getItem(mockKey()) || '[]');
-    const seed  = id ? seedData.profiles.filter(p => p.organizationId === id) : [];
-    return [...seed, ...extra];
+    return id ? extra : [];
 }
 
 function mockParents() {
-    const orgId = getCurrentOrgId();
-    const seed  = orgId ? seedData.parents.filter(p => p.organizationId === orgId) : seedData.parents;
-    return seed;
+    return [];
 }
 
 function mockChildren() {
-    const orgId = getCurrentOrgId();
-    return orgId ? seedData.children.filter(c => c.organizationId === orgId) : seedData.children;
+    return [];
 }
 
 function mockGroups() {

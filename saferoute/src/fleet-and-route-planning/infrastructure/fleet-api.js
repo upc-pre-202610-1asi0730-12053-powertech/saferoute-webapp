@@ -1,6 +1,5 @@
 import { BaseApi } from "../../shared/infrastructure/base-api.js";
 import { BaseEndpoint } from "../../shared/infrastructure/base-endpoint.js";
-import seedData from '../../server/db.json';
 
 const routeEndpointPath   = import.meta.env.VITE_ROUTE_ENDPOINT_PATH    || '/routes';
 const vehicleEndpointPath = import.meta.env.VITE_VEHICLE_ENDPOINT_PATH  || '/vehicles';
@@ -20,15 +19,13 @@ function routeUiStateKey() { return `saferoute.routes.ui.${getCurrentOrgId() || 
 function mockRoutes(orgId) {
     const id    = orgId || getCurrentOrgId();
     const extra = JSON.parse(localStorage.getItem(mockRouteKey()) || '[]');
-    const seed  = id ? seedData.routes.filter(r => r.organizationId === id) : [];
-    return [...seed, ...extra];
+    return id ? extra : [];
 }
 
 function mockVehicles() {
     const orgId = getCurrentOrgId();
-    const seed  = orgId ? seedData.vehicles.filter(v => v.organizationId === orgId) : [];
     const extra = JSON.parse(localStorage.getItem(mockVehicleKey()) || '[]');
-    return [...seed, ...extra];
+    return orgId ? extra : [];
 }
 
 function mockAssignments() {
@@ -281,10 +278,7 @@ export class FleetApi extends BaseApi {
     }
 
     async getDriversByOrganization(organizationId) {
-        if (useFakeAuth) {
-            const drivers = seedData.profiles.filter(p => !organizationId || (p.organizationId === organizationId && p.role === 'driver'));
-            return { status: 200, data: drivers };
-        }
+        if (useFakeAuth) return { status: 200, data: [] };
         const response = await this.http.get('/drivers');
         return {
             ...response,
@@ -293,10 +287,7 @@ export class FleetApi extends BaseApi {
     }
 
     async getChildrenByOrganization(organizationId) {
-        if (useFakeAuth) {
-            const children = seedData.children.filter(c => !organizationId || c.organizationId === organizationId);
-            return { status: 200, data: children };
-        }
+        if (useFakeAuth) return { status: 200, data: [] };
         const response = await this.http.get('/parents');
         const children = (response.data || [])
             .filter(parent => !organizationId || parent.organizationId === organizationId)

@@ -13,7 +13,7 @@ export class Incident {
      * @param {string} [params.description='']
      * @param {string} [params.reportedAt='']
      *
-     * Backward-compat fields from db.json:
+     * Backward-compat fields:
      * @param {?string} [params.routeId=null]
      * @param {string} [params.routeName='']
      * @param {string} [params.type='']

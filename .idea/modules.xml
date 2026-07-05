@@ -2,11 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-<<<<<<< HEAD
-      <module fileurl="file://$PROJECT_DIR$/.idea/safe-route-api-12053.iml" filepath="$PROJECT_DIR$/.idea/safe-route-api-12053.iml" />
-=======
-      <module fileurl="file://$PROJECT_DIR$/.idea/saferoute-webapp.iml" filepath="$PROJECT_DIR$/.idea/saferoute-webapp.iml" />
->>>>>>> 45cf17206d711b762c980bc981c914235bf89cb8
+      <module fileurl="file://$PROJECT_DIR$/.idea/saferoute-webapp-main.iml" filepath="$PROJECT_DIR$/.idea/saferoute-webapp-main.iml" />
     </modules>
   </component>
 </project>
