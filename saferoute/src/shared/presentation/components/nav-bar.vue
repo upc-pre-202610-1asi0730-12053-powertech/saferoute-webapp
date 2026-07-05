@@ -20,6 +20,7 @@ const isAuthenticated = computed(() => iamStore.isAuthenticated);
 const adminItems = [
   { label: 'option.home',         to: '/home',                                    icon: 'pi pi-home'        },
   { label: 'option.community',    to: '/stakeholder-and-asset-management/management',   icon: 'pi pi-users'       },
+  { label: 'option.student-groups', to: '/stakeholder-and-asset-management/student-groups', icon: 'pi pi-sitemap' },
   { label: 'option.routes',       to: '/fleet-and-route-planning/management',         icon: 'pi pi-map-marker'  },
   { label: 'option.trips',        to: '/trip-execution-and-monitoring/monitor',             icon: 'pi pi-car'         },
   { label: 'option.subscription-and-plan-management', to: '/subscription-and-plan-management/status',      icon: 'pi pi-credit-card' },

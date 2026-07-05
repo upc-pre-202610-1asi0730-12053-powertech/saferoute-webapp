@@ -12,6 +12,7 @@ import { TripApi }  from '../../../trip-execution-and-monitoring/infrastructure/
 import { fetchRoadRoute } from '../../../shared/infrastructure/ors.js';
 import { useIamStore } from '../../../identity-and-access-management/application/iam.store.js';
 import { useSubscriptionStore } from '../../../subscription-and-plan-management/application/subscription.store.js';
+import { StakeholderApi } from '../../../stakeholder-and-asset-management/infrastructure/stakeholder-api.js';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow });
@@ -20,6 +21,7 @@ const { t }    = useI18n();
 const toast    = useToast();
 const api      = new RouteApi();
 const tripApi  = new TripApi();
+const stakeholderApi = new StakeholderApi();
 const iamStore = useIamStore();
 const subscriptionStore = useSubscriptionStore();
 
@@ -32,6 +34,29 @@ const currentDriverId = ref(null);
 const driverOptions  = ref([]);
 const vehicleOptions = ref([]);
 const studentOptions = ref([]);
+const studentGroupOptions = ref([]);
+
+function normalizeGroupChildIds(group) {
+  return (group?.childIds || group?.childrenIds || []).map(id => String(id));
+}
+
+async function loadStudentGroups(orgId) {
+  try {
+    const groupsRes = await stakeholderApi.getGroupsByOrganization(orgId);
+    studentGroupOptions.value = (groupsRes.data || [])
+      .map(group => ({
+        label: `${group.name} (${normalizeGroupChildIds(group).length})`,
+        value: String(group.id),
+        name: group.name,
+        childIds: normalizeGroupChildIds(group),
+        isFinalized: Boolean(group.isFinalized ?? group.isFinalizedValue),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.warn('Student groups failed to load:', error);
+    studentGroupOptions.value = [];
+  }
+}
 
 async function loadOrgOptions() {
   const orgId = iamStore.currentUser?.organizationId || null;
@@ -52,6 +77,7 @@ async function loadOrgOptions() {
 
     studentOptions.value = (childrenRes.data || [])
         .map(c => ({ label: `${c.fullName || `${c.firstName} ${c.lastName}`} (${c.age ?? '-'})`, value: String(c.id), name: c.fullName || `${c.firstName} ${c.lastName}`, grade: c.age ?? '' }));
+    await loadStudentGroups(orgId);
     return;
   } catch (error) {
     console.warn('Backend reference data failed, using locally stored data:', error);
@@ -72,6 +98,17 @@ async function loadOrgOptions() {
   studentOptions.value = extraChildren
       .filter(c => c.status !== false)
       .map(c => ({ label: `${c.name} (${c.grade})`, value: c.id, name: c.name, grade: c.grade }));
+
+  const extraGroups = JSON.parse(localStorage.getItem(`saferoute.mock.groups.${orgId || 'default'}`) || '[]');
+  studentGroupOptions.value = extraGroups
+      .map(group => ({
+        label: `${group.name} (${normalizeGroupChildIds(group).length})`,
+        value: String(group.id),
+        name: group.name,
+        childIds: normalizeGroupChildIds(group),
+        isFinalized: Boolean(group.isFinalized ?? group.isFinalizedValue),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // ── Route state ────────────────────────────────────────────────────────────────
@@ -97,6 +134,8 @@ const emptyForm = () => ({
   vehicleId:          null,
   vehiclePlate:       '',
   studentIds:         [],
+  studentGroupId:     null,
+  groupTargetStopIndex: 0,
   scheduledStartTime: '',
   status:             'ACTIVE',
   organizationId:     iamStore.currentUser?.organizationId || 'default',
@@ -108,14 +147,46 @@ const emptyForm = () => ({
 
 const form = ref(emptyForm());
 
+const groupStopOptions = computed(() =>
+  form.value.waypoints.map((wp, index) => ({
+    label: `${index + 1}. ${wp.name || `Parada ${index + 1}`}`,
+    value: index,
+  }))
+);
+
+function applyStudentGroupToStop() {
+  const group = studentGroupOptions.value.find(item => item.value === form.value.studentGroupId);
+  if (!group) return;
+  if (!form.value.waypoints.length) {
+    toast.add({ severity: 'warn', summary: 'Agrega una parada', detail: 'Crea al menos una parada para asignar el grupo.', life: 3500 });
+    return;
+  }
+  const targetIndex = Number.isInteger(form.value.groupTargetStopIndex)
+    ? form.value.groupTargetStopIndex
+    : 0;
+  const waypoint = form.value.waypoints[targetIndex] || form.value.waypoints[0];
+  const current = new Set((waypoint.studentIds || []).map(String));
+  group.childIds.forEach(id => current.add(String(id)));
+  waypoint.studentIds = [...current];
+  syncStudentIdsFromWaypoints();
+  toast.add({
+    severity: 'success',
+    summary: 'Grupo asignado',
+    detail: `${group.name}: ${group.childIds.length} alumno${group.childIds.length === 1 ? '' : 's'}`,
+    life: 3000,
+  });
+}
+
+function syncStudentIdsFromWaypoints() {
+  const all = new Set();
+  form.value.waypoints.forEach(w => (w.studentIds || []).forEach(id => all.add(String(id))));
+  form.value.studentIds = [...all];
+}
+
 /** Sync form.studentIds = union of all waypoint studentIds */
 watch(
   () => form.value.waypoints.map(w => w.studentIds),
-  () => {
-    const all = new Set();
-    form.value.waypoints.forEach(w => (w.studentIds || []).forEach(id => all.add(id)));
-    form.value.studentIds = [...all];
-  },
+  syncStudentIdsFromWaypoints,
   { deep: true }
 );
 
@@ -297,6 +368,7 @@ function initFormMap() {
       lng:        parseFloat(e.latlng.lng.toFixed(6)),
       studentIds: [],
     });
+    if (form.value.waypoints.length === 1) form.value.groupTargetStopIndex = 0;
     syncOriginDest();
     rebuildFormMap();
   });
@@ -323,6 +395,9 @@ function syncOriginDest() {
 function removeWaypoint(i) {
   form.value.waypoints.splice(i, 1);
   form.value.waypoints.forEach((w, idx) => (w.order = idx + 1));
+  if (form.value.groupTargetStopIndex >= form.value.waypoints.length) {
+    form.value.groupTargetStopIndex = Math.max(form.value.waypoints.length - 1, 0);
+  }
   syncOriginDest();
   rebuildFormMap();
 }
@@ -366,7 +441,7 @@ function optimizeWaypoints() {
 }
 
 function onWaypointNameChange() { syncOriginDest(); rebuildFormMap(); }
-function clearWaypoints()       { form.value.waypoints = []; syncOriginDest(); rebuildFormMap(); }
+function clearWaypoints()       { form.value.waypoints = []; form.value.groupTargetStopIndex = 0; syncOriginDest(); rebuildFormMap(); }
 
 /* ─────────────────────────────────────────────────────────────
    DIALOG LIFECYCLE
@@ -445,6 +520,8 @@ function openEdit(route) {
     ...route,
     waypoints:  (route.waypoints  || []).map(w => ({ ...w, studentIds: w.studentIds || [] })),
     studentIds: [...(route.studentIds || [])],
+    studentGroupId: null,
+    groupTargetStopIndex: 0,
   };
   showDialog.value = true;
 }
@@ -707,7 +784,33 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <!-- Students are assigned per stop (see waypoints below) -->
+            <div class="group-assignment">
+              <div class="group-assignment-head">
+                <span><i class="pi pi-sitemap"/> Asignar grupo</span>
+                <small>{{ form.studentIds.length }} alumno{{ form.studentIds.length === 1 ? '' : 's' }} en ruta</small>
+              </div>
+              <div class="group-assignment-row">
+                <pv-select
+                  v-model="form.studentGroupId"
+                  :options="studentGroupOptions"
+                  option-label="label" option-value="value"
+                  placeholder="Seleccionar grupo"
+                  class="group-select"/>
+                <pv-select
+                  v-model="form.groupTargetStopIndex"
+                  :options="groupStopOptions"
+                  option-label="label" option-value="value"
+                  placeholder="Parada"
+                  :disabled="!form.waypoints.length"
+                  class="stop-select"/>
+                <pv-button
+                  label="Aplicar"
+                  icon="pi pi-user-plus"
+                  outlined
+                  :disabled="!form.studentGroupId || !form.waypoints.length"
+                  @click="applyStudentGroupToStop"/>
+              </div>
+            </div>
 
             <!-- ── Paradas (mapa interactivo) ── -->
             <div class="wps-header">
@@ -951,6 +1054,57 @@ onBeforeUnmount(() => {
 .field label { font-size: 0.85rem; font-weight: 600; color: var(--dark); }
 .req { color: #ef4444; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+.group-assignment {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  padding: 0.75rem;
+}
+
+.group-assignment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.group-assignment-head span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--dark);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.group-assignment-head small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.group-assignment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.group-select,
+.stop-select {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .group-assignment-head,
+  .group-assignment-row {
+    display: flex;
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
 
 /* Students */
 .students-section { display: flex; flex-direction: column; gap: 0.4rem; }

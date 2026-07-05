@@ -283,8 +283,9 @@ export class StakeholderApi extends BaseApi {
             organizationId: request.organizationId,
             name: request.name,
         });
+        const groupId = response.data.id;
         for (const childId of request.childIds || []) {
-            response = await this.http.post(`${groupsEndpointPath}/${response.data.id}/children`, { childId });
+            response = await this.http.post(`${groupsEndpointPath}/${groupId}/children`, { childId });
         }
         return response;
     }
@@ -309,6 +310,34 @@ export class StakeholderApi extends BaseApi {
             return Promise.resolve({ status: 200, data: list[idx] || null });
         }
         return this.http.post(`${groupsEndpointPath}/${groupId}/finalize`);
+    }
+
+    async addChildToGroup(groupId, childId) {
+        if (useFakeAuth) {
+            const list = mockGroups();
+            const idx = list.findIndex(g => String(g.id) === String(groupId));
+            if (idx !== -1) {
+                const childIds = new Set((list[idx].childIds || []).map(String));
+                childIds.add(String(childId));
+                list[idx].childIds = [...childIds];
+                localStorage.setItem(mockGroupKey(), JSON.stringify(list));
+            }
+            return Promise.resolve({ status: 200, data: list[idx] || null });
+        }
+        return this.http.post(`${groupsEndpointPath}/${groupId}/children`, { childId });
+    }
+
+    async removeChildFromGroup(groupId, childId) {
+        if (useFakeAuth) {
+            const list = mockGroups();
+            const idx = list.findIndex(g => String(g.id) === String(groupId));
+            if (idx !== -1) {
+                list[idx].childIds = (list[idx].childIds || []).filter(id => String(id) !== String(childId));
+                localStorage.setItem(mockGroupKey(), JSON.stringify(list));
+            }
+            return Promise.resolve({ status: 204, data: {} });
+        }
+        return this.http.delete(`${groupsEndpointPath}/${groupId}/children/${childId}`);
     }
 
     // ─── Backward-compatible methods (used by existing views) ────────────────
