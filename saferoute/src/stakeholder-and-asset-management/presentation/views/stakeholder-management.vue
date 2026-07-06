@@ -22,6 +22,7 @@ const SEED_CHILDREN = [];
 
 const PARENTS_KEY  = `saferoute.mock.parents.${orgId  || 'default'}`;
 const CHILDREN_KEY = `saferoute.mock.children.${orgId || 'default'}`;
+const DRIVER_VEHICLES_KEY = `saferoute.driverVehicles.${orgId || 'default'}`;
 
 function loadParents()  {
   const stored = localStorage.getItem(PARENTS_KEY);
@@ -33,6 +34,19 @@ function loadChildren() {
 }
 function saveParents(list)  { localStorage.setItem(PARENTS_KEY,  JSON.stringify(list)); }
 function saveChildren(list) { localStorage.setItem(CHILDREN_KEY, JSON.stringify(list)); }
+function loadDriverVehicleAssignments() {
+  return JSON.parse(localStorage.getItem(DRIVER_VEHICLES_KEY) || '{}');
+}
+function saveDriverVehicleAssignments(assignments) {
+  localStorage.setItem(DRIVER_VEHICLES_KEY, JSON.stringify(assignments));
+}
+function persistDriverVehicleAssignment(driverId, vehicleId) {
+  if (!driverId) return;
+  const assignments = loadDriverVehicleAssignments();
+  if (vehicleId) assignments[String(driverId)] = String(vehicleId);
+  else delete assignments[String(driverId)];
+  saveDriverVehicleAssignments(assignments);
+}
 
 /* ── top-level section ───────────────────────────────────── */
 const section = ref('users'); // 'users' | 'logistics'
@@ -318,11 +332,12 @@ function normalizeChild(child, parent) {
 }
 
 function normalizeDriver(driver) {
+  const assignedVehicles = loadDriverVehicleAssignments();
   return {
     ...driver,
     name: fullNameOf(driver),
     license: driver.license || driver.licenseNumber || '',
-    vehicle_id: driver.vehicle_id || driver.vehicleId || null,
+    vehicle_id: driver.vehicle_id || driver.vehicleId || assignedVehicles[String(driver.id)] || null,
     status: driver.status === undefined ? true : driver.status === true || driver.status === 'ACTIVE',
   };
 }
@@ -332,6 +347,10 @@ function normalizeVehicle(vehicle) {
     ...vehicle,
     status: vehicle.status === undefined ? true : vehicle.status === true || vehicle.status === 'ACTIVE',
   };
+}
+
+function getAssignedVehicle(driver) {
+  return fleet.value.find(vehicle => String(vehicle.id) === String(driver.vehicle_id));
 }
 
 async function loadBackendData() {
@@ -427,13 +446,16 @@ const saveLog = async () => {
         vehicleId: logForm.value.vehicle_id,
         status: logForm.value.status ? 'ACTIVE' : 'INACTIVE',
       };
+      let savedDriverId = logForm.value.id;
       if (logForm.value.id) {
         await stakeholderApi.updateDriver(logForm.value.id, payload);
         toast.add({ severity: 'success', summary: 'Actualizado', detail: 'Conductor actualizado.', life: 3000 });
       } else {
-        await stakeholderApi.createDriver(payload);
+        const response = await stakeholderApi.createDriver(payload);
+        savedDriverId = response.data?.id;
         toast.add({ severity: 'success', summary: 'Registrado', detail: 'Conductor registrado.', life: 3000 });
       }
+      persistDriverVehicleAssignment(savedDriverId, logForm.value.vehicle_id);
     } else {
       const payload = {
         organizationId: orgId,
@@ -468,9 +490,12 @@ const saveLog = async () => {
     if (logForm.value.id) {
       const idx = drivers.value.findIndex(d => d.id === logForm.value.id);
       if (idx !== -1) drivers.value[idx] = { id: logForm.value.id, name: logForm.value.nameOrPlate, license: logForm.value.licenseOrModel, vehicle_id: logForm.value.vehicle_id, status: logForm.value.status };
+      persistDriverVehicleAssignment(logForm.value.id, logForm.value.vehicle_id);
       toast.add({ severity: 'success', summary: 'Actualizado', detail: 'Conductor actualizado.', life: 3000 });
     } else {
-      drivers.value.push({ id: Date.now(), name: logForm.value.nameOrPlate, license: logForm.value.licenseOrModel, vehicle_id: logForm.value.vehicle_id, status: logForm.value.status });
+      const driverId = Date.now();
+      drivers.value.push({ id: driverId, name: logForm.value.nameOrPlate, license: logForm.value.licenseOrModel, vehicle_id: logForm.value.vehicle_id, status: logForm.value.status });
+      persistDriverVehicleAssignment(driverId, logForm.value.vehicle_id);
       toast.add({ severity: 'success', summary: 'Registrado', detail: 'Conductor registrado.', life: 3000 });
     }
     saveDrivers(drivers.value);
@@ -506,6 +531,7 @@ const deleteLog = (item) => {
         else await routeApi.deleteVehicle(item.id);
         if (isDriver) drivers.value = drivers.value.filter(d => d.id !== item.id);
         else fleet.value = fleet.value.filter(f => f.id !== item.id);
+        if (isDriver) persistDriverVehicleAssignment(item.id, null);
         toast.add({ severity: 'warn', summary: 'Eliminado', detail: 'Registro eliminado.', life: 3000 });
         return;
       } catch (error) {
@@ -513,7 +539,7 @@ const deleteLog = (item) => {
         toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo eliminar el registro.', life: 4000 });
         return;
       }
-      if (isDriver) { drivers.value = drivers.value.filter(d => d.id !== item.id); saveDrivers(drivers.value); }
+      if (isDriver) { drivers.value = drivers.value.filter(d => d.id !== item.id); persistDriverVehicleAssignment(item.id, null); saveDrivers(drivers.value); }
       else          { fleet.value   = fleet.value.filter(f => f.id !== item.id);   saveFleet(fleet.value);     }
       toast.add({ severity: 'warn', summary: 'Eliminado', detail: 'Registro eliminado.', life: 3000 });
     },
@@ -816,8 +842,8 @@ const deleteLog = (item) => {
           <pv-column field="license" header="Licencia"/>
           <pv-column header="Vehículo Asignado">
             <template #body="{ data }">
-              <span v-if="fleet.find(f => f.id === data.vehicle_id)" class="vehicle-badge">
-                <i class="pi pi-car"/> {{ fleet.find(f => f.id === data.vehicle_id)?.plate }}
+              <span v-if="getAssignedVehicle(data)" class="vehicle-badge">
+                <i class="pi pi-car"/> {{ getAssignedVehicle(data)?.plate }}
               </span>
               <span v-else class="empty-note">Sin asignar</span>
             </template>

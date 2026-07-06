@@ -68,6 +68,9 @@ function saveRouteUiState(routeId, resource) {
         driverName: resource.driverName,
         vehicleId: resource.vehicleId,
         vehiclePlate: resource.vehiclePlate,
+        vehicleModel: resource.vehicleModel,
+        vehicleBrand: resource.vehicleBrand,
+        vehicleCapacity: resource.vehicleCapacity,
         scheduledStartTime: resource.scheduledStartTime || resource.departureTime,
         status: resource.status,
         waypoints: resource.waypoints || [],
@@ -113,6 +116,9 @@ function toUiRoute(resource, fallback = {}) {
         serviceDays: resource?.serviceDays || fallback.serviceDays || defaultServiceDays,
         vehicleId: cached.vehicleId || fallback.vehicleId || vehicle.id || null,
         vehiclePlate: cached.vehiclePlate || fallback.vehiclePlate || vehicle.plate || '',
+        vehicleModel: cached.vehicleModel || fallback.vehicleModel || vehicle.model || '',
+        vehicleBrand: cached.vehicleBrand || fallback.vehicleBrand || vehicle.brand || '',
+        vehicleCapacity: cached.vehicleCapacity || fallback.vehicleCapacity || vehicle.capacity || 0,
         driverId: assignment.driverId || fallback.driverId || null,
         driverName: cached.driverName || fallback.driverName || '',
         studentIds: childIds,
@@ -337,9 +343,35 @@ export class FleetApi extends BaseApi {
 
     async updateRoute(resource) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: resource });
-        saveRouteUiState(resource.id, resource);
-        const response = await this.#routesEndpoint.update(resource.id, resource);
-        return { ...response, data: toUiRoute(response.data, resource) };
+
+        let selectedVehicle = null;
+        if (resource.vehicleId && (!resource.vehiclePlate || !resource.vehicleModel || !resource.vehicleCapacity)) {
+            selectedVehicle = await ignoreNotSupported(
+                this.#vehiclesEndpoint.getById(resource.vehicleId).then(response => response.data),
+                null
+            );
+        }
+
+        const payload = {
+            ...resource,
+            vehiclePlate: resource.vehiclePlate || selectedVehicle?.plate || '',
+            vehicleModel: resource.vehicleModel || selectedVehicle?.model || '',
+            vehicleBrand: resource.vehicleBrand || selectedVehicle?.brand || 'SafeRoute',
+            vehicleCapacity: Number(resource.vehicleCapacity || selectedVehicle?.capacity || resource.studentIds?.length || 1),
+            departureTime: resource.departureTime || resource.scheduledStartTime,
+            serviceDays: resource.serviceDays?.length ? resource.serviceDays : defaultServiceDays,
+            waypoints: (resource.waypoints || []).map((waypoint, index) => ({
+                ...waypoint,
+                order: waypoint.order || index + 1,
+                latitude: waypoint.latitude ?? waypoint.lat,
+                longitude: waypoint.longitude ?? waypoint.lng,
+            })),
+            studentIds: resource.studentIds || [],
+        };
+
+        saveRouteUiState(resource.id, payload);
+        const response = await this.#routesEndpoint.update(resource.id, payload);
+        return { ...response, data: toUiRoute(response.data, payload) };
     }
 
     async deleteRoute(id) {

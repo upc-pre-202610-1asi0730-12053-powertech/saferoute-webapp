@@ -540,8 +540,8 @@ async function saveRoute() {
     }
 
     if (isEdit.value) {
-      await api.updateRoute(form.value);
-      savedRoute = { ...form.value };
+      const res = await api.updateRoute(form.value);
+      savedRoute = res.data || { ...form.value };
       const idx = routes.value.findIndex(r => r.id === form.value.id);
       if (idx !== -1) routes.value[idx] = savedRoute;
       if (selected.value?.id === form.value.id) {
@@ -586,6 +586,9 @@ async function saveRoute() {
     }
 
     showDialog.value = false;
+  } catch (error) {
+    console.error('Route save failed:', error);
+    toast.add({ severity: 'error', summary: 'No se pudo guardar la ruta', detail: 'Revisa los datos e intenta nuevamente.', life: 4500 });
   } finally {
     savingTrip.value = false;
   }
@@ -1017,31 +1020,37 @@ onBeforeUnmount(() => {
 /* ── Dialog ─────────────────────────────────────────────────── */
 .dialog-body {
   display: grid; grid-template-columns: minmax(480px, 560px) 1fr;
-  height: 86vh; max-height: 86vh; overflow: hidden;
+  height: min(82vh, calc(100vh - 7rem));
+  max-height: calc(100vh - 7rem);
+  overflow: hidden;
 }
 
 .dialog-form-col {
   display: flex; flex-direction: column;
   border-right: 1px solid #e5e7eb;
-  height: 86vh; max-height: 86vh; overflow: hidden;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 .form-scroll {
   flex: 1; overflow-y: auto;
   padding: 1.5rem 1.75rem 0.75rem;
   display: flex; flex-direction: column; gap: 1rem;
+  min-height: 0;
 }
 
 @media (max-width: 900px) {
   .dialog-body {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr auto;
-    height: auto; max-height: 92vh;
+    height: min(92vh, calc(100vh - 5rem));
+    max-height: calc(100vh - 5rem);
   }
   .dialog-form-col {
-    height: auto; max-height: none; border-right: none;
+    height: 100%; min-height: 0; border-right: none;
     border-bottom: 1px solid #e5e7eb;
   }
-  .dialog-map-col { height: 280px; }
+  .dialog-map-col { display: none; }
 }
 
 .form-section-title {
@@ -1209,15 +1218,21 @@ onBeforeUnmount(() => {
   display: flex; justify-content: flex-end; gap: 0.5rem;
   padding: 0.85rem 1.25rem;
   border-top: 1px solid #e5e7eb; background: #fff;
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
 }
 
 /* Map column */
 .dialog-map-col {
   display: flex; flex-direction: column;
-  height: 86vh; max-height: 86vh;
+  height: 100%;
+  min-height: 0;
 }
 .form-leaflet-map {
-  flex: 1; height: calc(86vh - 36px); min-height: 400px;
+  flex: 1;
+  min-height: 0;
 }
 .form-map-legend {
   display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;
