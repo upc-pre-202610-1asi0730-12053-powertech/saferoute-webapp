@@ -49,6 +49,14 @@ package "fleet.application" {
     + createVehicle(request): void
     + createAssignment(request): void
   }
+  class RouteStore <<legacy>> {
+    - routes
+    + fetchRoutes(): void
+    + getRouteById(id): Route
+    + addRoute(route): void
+    + updateRoute(route): void
+    + deleteRoute(id): void
+  }
 }
 
 package "fleet.infrastructure" {
@@ -80,44 +88,27 @@ package "fleet.infrastructure" {
   }
 }
 
-package "fleet.presentation.components" {
-  class RouteForm {
-    - name: string
-    - departureTime: string
-    - serviceDays: string[]
-    - errorMessage: string
-    + submitRoute(): void
-    + addStop(stop): void
-    + removeStop(stopId): void
-    + clearFields(): void
-    + routeCreated(): void <<event>>
-    + routeUpdated(): void <<event>>
+package "fleet.presentation.views" {
+  class RouteManagementView <<view>> {
+    - form: Route
+    - vehicleOptions / studentOptions / studentGroupOptions
+    - previewMap / formMap
+    + loadRoutes(): void
+    + openCreate(): void
+    + openEdit(route): void
+    + saveRoute(): void
+    + deleteRoute(id): void
+    + optimizeWaypoints(): void
+    + showRouteOnMap(route): void
+    + applyStudentGroupToStop(): void
   }
-  class StopList {
-    - stops: Stop[]
-    + reorderStops(stops): void
-    + selectStop(stop): void
-    + stopSelected(): void <<event>>
-    + stopRemoved(): void <<event>>
-    + stopsReordered(): void <<event>>
+  class RouteListView <<view>> {
+    - routes: Route[]
+    + confirmDelete(route): void
   }
-  class VehicleList {
-    - vehicles: Vehicle[]
-    - searchQuery: string
-    + filterVehicles(): void
-    + selectVehicle(vehicle): void
-    + vehicleSelected(): void <<event>>
-    + vehicleDeleted(): void <<event>>
-  }
-  class AssignmentForm {
-    - selectedDriver
-    - selectedChildren: string[]
-    - errorMessage: string
-    + assignDriver(driverId): void
-    + addChild(childId): void
-    + removeChild(childId): void
-    + submitAssignment(): void
-    + assignmentSubmitted(): void <<event>>
+  class RouteFormView <<view>> {
+    - form
+    + saveRoute(): void
   }
 }
 
@@ -141,14 +132,17 @@ RouteAssembler ..> "fleet.domain.model.Route" : creates
 StopAssembler ..> "fleet.domain.model.Stop" : creates
 VehicleAssembler ..> "fleet.domain.model.Vehicle" : creates
 AssignmentAssembler ..> "fleet.domain.model.Assignment" : creates
-RouteForm --> "fleet.domain.model.Route" : uses
-StopList --> "fleet.domain.model.Stop" : uses
-VehicleList --> "fleet.domain.model.Vehicle" : uses
-AssignmentForm --> "fleet.domain.model.Assignment" : uses
-Layout --> RouteForm : uses
-Layout --> StopList : uses
-Layout --> VehicleList : uses
-Layout --> AssignmentForm : uses
-Layout --> FleetStore : uses
+RouteManagementView --> "fleet.domain.model.Route" : uses
+RouteManagementView --> "fleet.domain.model.Stop" : uses
+RouteManagementView --> "fleet.domain.model.Vehicle" : uses
+RouteManagementView --> "fleet.domain.model.Assignment" : uses
+RouteListView --> "fleet.domain.model.Route" : uses
+RouteFormView --> "fleet.domain.model.Route" : uses
+Layout --> RouteManagementView : routes to
+Layout --> RouteListView : routes to
+Layout --> RouteFormView : routes to
+RouteManagementView --> FleetStore : uses
+RouteListView --> RouteStore : uses
+RouteFormView --> RouteStore : uses
 
 @enduml

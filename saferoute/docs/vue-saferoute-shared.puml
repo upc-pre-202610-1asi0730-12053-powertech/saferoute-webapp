@@ -33,40 +33,45 @@ package "shared.domain.model" {
     - longitude: number
     + isValid(): boolean
   }
+  class BaseEntity {
+    - id: string
+  }
 }
 
 package "shared.infrastructure" {
-  class ApiClient {
-    - baseUrl: string
-    - http: HttpClient
-    + get(endpoint: string)
-    + post(endpoint: string, body)
-    + put(endpoint: string, body)
-    + delete(endpoint: string)
+  class BaseApi {
+    - http: AxiosInstance
+    + get http(): AxiosInstance
+  }
+  class BaseEndpoint {
+    - http: AxiosInstance
+    - endpointPath: string
+    + getAll()
+    + getById(id)
+    + create(resource)
+    + update(id, resource)
+    + delete(id)
   }
 }
 
 package "shared.presentation.components" {
   class Layout {
-    - drawerVisible: boolean
-    - currentUser
-    - currentRoute
-    + toggleDrawer(): void
-    + setRoute(route): void
-    + onMounted(): void
+    - hideNav: boolean
+    - navItems
+    - roleLabel: string
   }
   class NavBar {
     - currentUser
     - isAuthenticated: boolean
+    - navItems
     + navigateTo(route): void
     + logout(): void
   }
   class LanguageSwitcher {
-    - currentLang: string
-    - languages: string[]
-    + useLanguage(language: string): void
+    - locale: string
+    - availableLocales: string[]
   }
-  class Footer {
+  class FooterContent {
     ' static content
   }
 }
@@ -76,7 +81,7 @@ class App
 App --> Layout : uses
 Layout --> NavBar : uses
 Layout --> LanguageSwitcher : uses
-Layout --> Footer : uses
-Layout ..> "shared.infrastructure.ApiClient" : uses
+Layout --> FooterContent : uses
+BaseEndpoint ..> BaseApi : uses
 
 @enduml

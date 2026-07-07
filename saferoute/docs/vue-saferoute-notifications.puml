@@ -26,6 +26,12 @@ package "notifications.domain.model" {
     - message: string
     - publishedAt: string
   }
+  class Message {
+    - id: string
+    - title: string
+    - content: string
+    - timestamp: string
+  }
 }
 
 package "notifications.application" {
@@ -67,30 +73,26 @@ package "notifications.infrastructure" {
   }
 }
 
-package "notifications.presentation.components" {
-  class NotificationList {
-    - notifications: Notification[]
+package "notifications.presentation.views" {
+  class AlertCenterView <<view>> {
+    - activeTab: string
+    - incidents / notifications / trips
     - unreadCount: number
-    + markAsRead(notificationId): void
-    + filterByCategory(category): void
-    + getUnreadCount(): number
-    + notificationRead(): void <<event>>
+    - announcementForm
+    + loadAlertData(): void
+    + markRead(notification): void
+    + markAllRead(): void
+    + saveIncident(): void
+    + saveAnnouncement(): void
+    + resolveIncident(incident): void
   }
-  class AlertPanel {
-    - alerts: Alert[]
-    - hasActivePanic: boolean
-    + triggerPanic(): void
-    + dismissAlert(alertId): void
-    + panicTriggered(): void <<event>>
-    + alertDismissed(): void <<event>>
+  class MessageListView <<view>> {
+    - messages: Message[]
+    + confirmDelete(message): void
   }
-  class AnnouncementForm {
-    - message: string
-    - routeId: string
-    - errorMessage: string
-    + submitAnnouncement(): void
-    + clearFields(): void
-    + announcementPublished(): void <<event>>
+  class MessageFormView <<view>> {
+    - form
+    + saveMessage(): void
   }
 }
 
@@ -112,12 +114,16 @@ NotificationsStore ..> "notifications.infrastructure.AnnouncementAssembler" : us
 NotificationAssembler ..> "notifications.domain.model.Notification" : creates
 AlertAssembler ..> "notifications.domain.model.Alert" : creates
 AnnouncementAssembler ..> "notifications.domain.model.Announcement" : creates
-NotificationList --> "notifications.domain.model.Notification" : uses
-AlertPanel --> "notifications.domain.model.Alert" : uses
-AnnouncementForm --> "notifications.domain.model.Announcement" : uses
-Layout --> NotificationList : uses
-Layout --> AlertPanel : uses
-Layout --> AnnouncementForm : uses
-Layout --> NotificationsStore : uses
+AlertCenterView --> "notifications.domain.model.Notification" : uses
+AlertCenterView --> "notifications.domain.model.Alert" : uses
+AlertCenterView --> "notifications.domain.model.Announcement" : uses
+Layout --> AlertCenterView : routes to
+Layout --> MessageListView : routes to
+Layout --> MessageFormView : routes to
+AlertCenterView --> NotificationsStore : uses
+MessageListView --> "notifications.domain.model.Message" : uses
+MessageFormView --> "notifications.domain.model.Message" : uses
+MessageListView --> NotificationsStore : uses
+MessageFormView --> NotificationsStore : uses
 
 @enduml

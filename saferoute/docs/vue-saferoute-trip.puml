@@ -65,30 +65,36 @@ package "trip.infrastructure" {
   }
 }
 
-package "trip.presentation.components" {
-  class TripDashboard {
+package "trip.presentation.views" {
+  class ActiveTripView <<view>> {
     - trip: Trip
-    - tripState: string
-    + startTrip(): void
-    + completeTrip(): void
-    + getTripState(): string
-    + tripStarted(): void <<event>>
-    + tripCompleted(): void <<event>>
+    - stops / progress
+    - isScheduled / isCompleted
+    + startSim(): void
+    + pauseSim(): void
+    + loadRoadRoute(): void
+    + onSegmentArrival(wpIdx): void
   }
-  class AttendanceChecklist {
+  class TripMonitoringView <<view>> {
+    - trips: Trip[]
+    + loadTrips(): void
+  }
+  class ParentTrackingView <<view>> {
+    - busStatus / etaLabel / timeline
+    - arrivalConfirmed: boolean
+    + loadTrackingData(): void
+    + advanceBus(): void
+  }
+  class AttendanceHistoryView <<view>> {
     - attendances: Attendance[]
-    - pendingCount: number
-    + updateBoardingState(childId, state): void
-    + getPendingCount(): number
-    + isAllBoarded(): boolean
-    + boardingUpdated(): void <<event>>
   }
-  class IncidentForm {
-    - description: string
-    - errorMessage: string
-    + submitIncident(): void
-    + clearFields(): void
-    + incidentReported(): void <<event>>
+  class TripListView <<view>> {
+    - visibleTrips: Trip[]
+    + confirmDelete(trip): void
+  }
+  class TripFormView <<view>> {
+    - form
+    + saveTrip(): void
   }
 }
 
@@ -110,12 +116,21 @@ TripStore ..> "trip.infrastructure.IncidentAssembler" : uses
 TripAssembler ..> "trip.domain.model.Trip" : creates
 AttendanceAssembler ..> "trip.domain.model.Attendance" : creates
 IncidentAssembler ..> "trip.domain.model.Incident" : creates
-TripDashboard --> "trip.domain.model.Trip" : uses
-AttendanceChecklist --> "trip.domain.model.Attendance" : uses
-IncidentForm --> "trip.domain.model.Incident" : uses
-Layout --> TripDashboard : uses
-Layout --> AttendanceChecklist : uses
-Layout --> IncidentForm : uses
-Layout --> TripStore : uses
+ActiveTripView --> "trip.domain.model.Trip" : uses
+ActiveTripView --> "trip.domain.model.Attendance" : uses
+ActiveTripView --> "trip.domain.model.Incident" : uses
+ParentTrackingView --> "trip.domain.model.Trip" : uses
+AttendanceHistoryView --> "trip.domain.model.Attendance" : uses
+Layout --> ActiveTripView : routes to
+Layout --> TripMonitoringView : routes to
+Layout --> ParentTrackingView : routes to
+Layout --> AttendanceHistoryView : routes to
+Layout --> TripListView : routes to
+Layout --> TripFormView : routes to
+ActiveTripView --> TripStore : uses
+TripMonitoringView --> TripStore : uses
+ParentTrackingView --> TripStore : uses
+TripListView --> TripStore : uses
+TripFormView --> TripStore : uses
 
 @enduml

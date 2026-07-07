@@ -82,38 +82,42 @@ package "stakeholder.infrastructure" {
   }
 }
 
-package "stakeholder.presentation.components" {
-  class ParentList {
-    - parents: Parent[]
-    - searchQuery: string
-    + filterParents(): void
-    + selectParent(parent): void
-    + parentSelected(): void <<event>>
-    + parentDeleted(): void <<event>>
+package "stakeholder.presentation.views" {
+  class StakeholderManagementView <<view>> {
+    - section: string
+    - parents / drivers / children
+    - parentDrawer / driverDrawer
+    + loadParents(): void
+    + loadChildren(): void
+    + getChildrenByParent(parentId): Child[]
+    + persistDriverVehicleAssignment(driverId, vehicleId): void
   }
-  class DriverList {
-    - drivers: Driver[]
-    - searchQuery: string
-    + filterDrivers(): void
-    + selectDriver(driver): void
-    + driverSelected(): void <<event>>
-    + driverDeleted(): void <<event>>
-  }
-  class ChildList {
-    - children: Child[]
-    - searchQuery: string
-    + filterChildren(): void
-    + selectChild(child): void
-    + childSelected(): void <<event>>
-    + childDeleted(): void <<event>>
-  }
-  class StudentGroupList {
+  class StudentGroupManagementView <<view>> {
     - groups: StudentGroup[]
-    - searchQuery: string
-    + filterGroups(): void
-    + selectGroup(group): void
-    + groupSelected(): void <<event>>
-    + groupFinalized(): void <<event>>
+    - children: Child[]
+    - form
+    + loadData(): void
+    + createGroup(): void
+    + addChild(group): void
+    + removeChild(group, childId): void
+    + finalizeGroup(group): void
+  }
+  class ProfileManagementView <<view>> {
+    - activeTab: string
+    - showDialog: boolean
+    + loadProfiles(): void
+    + openCreate(): void
+    + openEdit(profile): void
+    + saveProfile(): void
+    + deleteProfile(id): void
+  }
+  class ProfileListView <<view>> {
+    - profiles: Profile[]
+    + confirmDelete(profile): void
+  }
+  class ProfileFormView <<view>> {
+    - form
+    + saveProfile(): void
   }
 }
 
@@ -137,14 +141,18 @@ ParentAssembler ..> "stakeholder.domain.model.Parent" : creates
 DriverAssembler ..> "stakeholder.domain.model.Driver" : creates
 ChildAssembler ..> "stakeholder.domain.model.Child" : creates
 StudentGroupAssembler ..> "stakeholder.domain.model.StudentGroup" : creates
-ParentList --> "stakeholder.domain.model.Parent" : uses
-DriverList --> "stakeholder.domain.model.Driver" : uses
-ChildList --> "stakeholder.domain.model.Child" : uses
-StudentGroupList --> "stakeholder.domain.model.StudentGroup" : uses
-Layout --> ParentList : uses
-Layout --> DriverList : uses
-Layout --> ChildList : uses
-Layout --> StudentGroupList : uses
-Layout --> StakeholderStore : uses
+StakeholderManagementView --> "stakeholder.domain.model.Parent" : uses
+StakeholderManagementView --> "stakeholder.domain.model.Driver" : uses
+StakeholderManagementView --> "stakeholder.domain.model.Child" : uses
+StudentGroupManagementView --> "stakeholder.domain.model.StudentGroup" : uses
+StudentGroupManagementView --> "stakeholder.domain.model.Child" : uses
+Layout --> StakeholderManagementView : routes to
+Layout --> StudentGroupManagementView : routes to
+Layout --> ProfileManagementView : routes to
+Layout --> ProfileListView : routes to
+Layout --> ProfileFormView : routes to
+StakeholderManagementView --> StakeholderStore : uses
+StudentGroupManagementView --> StakeholderStore : uses
+ProfileManagementView --> StakeholderStore : uses
 
 @enduml
