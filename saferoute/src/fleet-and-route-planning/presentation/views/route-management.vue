@@ -568,6 +568,13 @@ async function saveRoute() {
           detail:   `Se generó un viaje SCHEDULED para hoy a las ${savedRoute.scheduledStartTime}.`,
           life:     5000,
         });
+      } else if (tripRes.reason === 'synced') {
+        toast.add({
+          severity: 'success',
+          summary:  'Viaje actualizado',
+          detail:   'El viaje existente quedo sincronizado con la ruta.',
+          life:     3500,
+        });
       } else if (tripRes.reason === 'duplicate') {
         toast.add({
           severity: 'warn',

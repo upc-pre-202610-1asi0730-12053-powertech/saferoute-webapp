@@ -113,33 +113,35 @@ function toParentPayload(resource) {
     const currentUser = getCurrentUser();
     const { firstName, lastName } = splitName(resource);
     const organizationId = resource.organizationId || currentUser.organizationId;
-    const userId = resource.userId || currentUser.id;
-    if (!organizationId || !userId || !firstName || !lastName) return null;
-    return {
+    if (!organizationId || !firstName || !lastName) return null;
+    const payload = {
         organizationId,
-        userId,
         firstName,
         lastName,
         email: fallbackEmail(resource, 'parent'),
         phoneNumber: fallbackPhone(resource),
     };
+    if (resource.userId) payload.userId = resource.userId;
+    if (resource.password) payload.password = resource.password;
+    return payload;
 }
 
 function toDriverPayload(resource) {
     const currentUser = getCurrentUser();
     const { firstName, lastName } = splitName(resource);
     const organizationId = resource.organizationId || currentUser.organizationId;
-    const userId = resource.userId || currentUser.id;
-    if (!organizationId || !userId || !firstName || !lastName) return null;
-    return {
+    if (!organizationId || !firstName || !lastName) return null;
+    const payload = {
         organizationId,
-        userId,
         firstName,
         lastName,
         email: fallbackEmail(resource, 'driver'),
         phoneNumber: fallbackPhone(resource),
         licenseNumber: fallbackLicense(resource),
     };
+    if (resource.userId) payload.userId = resource.userId;
+    if (resource.password) payload.password = resource.password;
+    return payload;
 }
 
 function toChildPayload(resource) {

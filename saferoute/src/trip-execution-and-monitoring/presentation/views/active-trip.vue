@@ -50,7 +50,7 @@ const waypoints  = computed(() => routeData.value?.waypoints || []);
 const stops = computed(() =>
   waypoints.value.map((wp, i) => ({
     ...wp,
-    done:    i < currentWpIdx.value,
+    done:    i <= currentWpIdx.value,
     current: i === currentWpIdx.value,
   }))
 );
@@ -196,7 +196,7 @@ function buildMapLayer() {
   map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
 
   wps.forEach((wp, i) => {
-    const color = i < currentWpIdx.value ? '#22c55e'
+    const color = i <= currentWpIdx.value ? '#22c55e'
                 : i === currentWpIdx.value ? '#6366f1' : '#94a3b8';
     const c = L.circleMarker([wp.lat, wp.lng], {
       radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 1,
@@ -229,7 +229,7 @@ async function loadRoadRoute() {
 
 function refreshStopColors() {
   stopCircles.forEach((c, i) => {
-    const color = i < currentWpIdx.value ? '#22c55e'
+    const color = i <= currentWpIdx.value ? '#22c55e'
                 : i === currentWpIdx.value ? '#6366f1' : '#94a3b8';
     c.setStyle({ fillColor: color });
   });

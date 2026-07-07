@@ -109,12 +109,16 @@ const saveParent = async () => {
     toast.add({ severity: 'error', summary: 'Error', detail: 'Usuario ya existe con este correo.', life: 3000 });
     return;
   }
+  if (!parentForm.value.id && !parentForm.value.password) {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'Ingrese una contrasena inicial para el padre.', life: 3000 });
+    return;
+  }
   try {
     const payload = {
       organizationId: orgId,
-      userId: iamStore.currentUser?.id,
       name: parentForm.value.name,
       email: parentForm.value.email,
+      password: parentForm.value.id ? undefined : parentForm.value.password,
       phone: parentForm.value.phone,
       phoneNumber: parentForm.value.phone,
     };
@@ -399,7 +403,18 @@ function saveFleet(list)   { localStorage.setItem(FLEET_KEY,   JSON.stringify(li
 const drivers = ref(loadDrivers());
 const fleet   = ref(loadFleet());
 
-const emptyLogForm = () => ({ id: null, nameOrPlate: '', licenseOrModel: '', vehicle_id: null, capacity: 0, status: true, licenseVerified: false });
+const emptyLogForm = () => ({
+  id: null,
+  nameOrPlate: '',
+  email: '',
+  phone: '',
+  password: '',
+  licenseOrModel: '',
+  vehicle_id: null,
+  capacity: 0,
+  status: true,
+  licenseVerified: false,
+});
 const logForm    = ref(emptyLogForm());
 const logDrawer  = ref(false);
 const logDrawerTitle = ref('Nuevo Conductor');
@@ -420,7 +435,18 @@ const openLogDrawer = () => {
 
 const openEditLog = (item) => {
   if (logTab.value === 'drivers') {
-    logForm.value = { id: item.id, nameOrPlate: item.name, licenseOrModel: item.license, vehicle_id: item.vehicle_id, capacity: 0, status: item.status };
+    logForm.value = {
+      id: item.id,
+      nameOrPlate: item.name,
+      email: item.email || '',
+      phone: item.phone || item.phoneNumber || '',
+      password: '',
+      licenseOrModel: item.license,
+      vehicle_id: item.vehicle_id,
+      capacity: 0,
+      status: item.status,
+      licenseVerified: true,
+    };
     logDrawerTitle.value = 'Editar Conductor';
   } else {
     logForm.value = { id: item.id, nameOrPlate: item.plate, licenseOrModel: item.model, vehicle_id: null, capacity: item.capacity, status: item.status };
@@ -434,13 +460,27 @@ const saveLog = async () => {
     toast.add({ severity: 'error', summary: 'Error', detail: 'Complete los campos obligatorios.', life: 3000 });
     return;
   }
+  if (logTab.value === 'drivers') {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(logForm.value.email)) {
+      toast.add({ severity: 'error', summary: 'Error', detail: 'Ingrese un email valido para la cuenta IAM del conductor.', life: 3000 });
+      return;
+    }
+    if (!logForm.value.id && !logForm.value.password) {
+      toast.add({ severity: 'error', summary: 'Error', detail: 'Ingrese una contrasena inicial para el conductor.', life: 3000 });
+      return;
+    }
+  }
   try {
     if (logTab.value === 'drivers') {
       const payload = {
         organizationId: orgId,
-        userId: iamStore.currentUser?.id,
         name: logForm.value.nameOrPlate,
         fullName: logForm.value.nameOrPlate,
+        email: logForm.value.email,
+        phone: logForm.value.phone,
+        phoneNumber: logForm.value.phone,
+        password: logForm.value.id ? undefined : logForm.value.password,
         license: logForm.value.licenseOrModel,
         licenseNumber: logForm.value.licenseOrModel,
         vehicleId: logForm.value.vehicle_id,
@@ -898,6 +938,19 @@ const deleteLog = (item) => {
           <div class="field">
             <label>{{ logTab === 'drivers' ? 'Nombre Completo' : 'Placa del Vehículo' }}</label>
             <pv-input-text v-model="logForm.nameOrPlate" class="w-full"/>
+          </div>
+          <div v-if="logTab === 'drivers'" class="field">
+            <label>Email de acceso *</label>
+            <pv-input-text v-model="logForm.email" type="email" class="w-full" placeholder="conductor@empresa.com"/>
+          </div>
+          <div v-if="logTab === 'drivers'" class="field">
+            <label>Telefono</label>
+            <pv-input-text v-model="logForm.phone" class="w-full" placeholder="Ej: 987654321"/>
+          </div>
+          <div v-if="logTab === 'drivers' && !logForm.id" class="field">
+            <label>Contrasena inicial *</label>
+            <pv-input-text v-model="logForm.password" type="password" class="w-full"/>
+            <small class="field-hint">El conductor usara esta clave para iniciar sesion.</small>
           </div>
           <div class="field">
             <label>{{ logTab === 'drivers' ? 'Licencia de Conducir' : 'Modelo' }}</label>

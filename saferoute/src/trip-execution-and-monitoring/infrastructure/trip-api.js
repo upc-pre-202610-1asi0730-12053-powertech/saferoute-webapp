@@ -197,7 +197,7 @@ export class TripApi extends BaseApi {
 
     deleteTrip(id) {
         if (useFakeAuth) return Promise.resolve({ status: 200, data: {} });
-        return Promise.resolve({ status: 204, data: { id } });
+        return this.#tripsEndpoint.delete(id);
     }
 
     async startTrip(request) {
@@ -303,7 +303,13 @@ export class TripApi extends BaseApi {
         if (!useFakeAuth) {
             const existing = await this.http.get(`${endpointPath}?routeId=${route.id}`).catch(() => ({ data: [] }));
             if ((existing.data || []).length > 0) {
-                return { status: 409, reason: 'duplicate', data: toUiTrip(existing.data[0], route) };
+                const trip = toUiTrip(existing.data[0], route);
+                saveTripUiState(trip.id, {
+                    ...route,
+                    routeName: route.name,
+                    tripType: route.type,
+                });
+                return { status: 200, reason: 'synced', data: trip };
             }
             const response = await this.createTrip({
                 organizationId: route.organizationId,
