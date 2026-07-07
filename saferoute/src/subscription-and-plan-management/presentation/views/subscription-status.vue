@@ -76,17 +76,17 @@ const planFeatures = {
     '6 rutas activas', '6 conductores',
     'Registro de alumnos', 'Marcación de abordaje digital',
     'Inicio y cierre de trayecto', 'Reporte de incidencias',
-    'Bitácora de viajes', 'Alertas de proximidad (US19)',
-    'Cámara en vivo del bus (US21)', 'Historial de asistencia (US22)',
+    'Bitácora de viajes', 'Alertas de proximidad',
+    'Cámara en vivo del bus', 'Historial de asistencia',
   ],
   COMPLETE: [
     '20 rutas activas', '20 conductores',
     'Registro de alumnos', 'Marcación de abordaje digital',
     'Inicio y cierre de trayecto', 'Reporte de incidencias',
-    'Bitácora de viajes', 'Alertas de proximidad (US19)',
-    'Cámara en vivo del bus (US21)', 'Historial de asistencia (US22)',
-    'GPS en tiempo real (US18)', 'Analítica de flota PDF (US7)',
-    'Botón de pánico SOS (US13)',
+    'Bitácora de viajes', 'Alertas de proximidad',
+    'Cámara en vivo del bus', 'Historial de asistencia',
+    'GPS en tiempo real', 'Analítica de flota PDF',
+    'Botón de pánico SOS',
   ],
 };
 
