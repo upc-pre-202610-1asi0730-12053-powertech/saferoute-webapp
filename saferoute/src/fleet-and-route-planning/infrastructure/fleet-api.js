@@ -93,11 +93,7 @@ function toUiRoute(resource, fallback = {}) {
             lat: stop.latitude,
             lng: stop.longitude,
             order: stop.order ?? index + 1,
-            studentIds: cachedWaypoints[index]?.studentIds?.length
-                ? cachedWaypoints[index].studentIds
-                : index === 0
-                    ? childIds
-                    : [],
+            studentIds: cachedWaypoints[index]?.studentIds || [],
         }))
         : cachedWaypoints;
     const inferredType = (resource?.departureTime || fallback.departureTime || cached.scheduledStartTime || '')

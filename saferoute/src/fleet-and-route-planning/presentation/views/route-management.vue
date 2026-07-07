@@ -469,13 +469,9 @@ function normalizeLoadedRoute(route) {
   const driver = driverOptions.value.find(driver => driver.value === String(route.driverId));
   const vehicle = vehicleOptions.value.find(vehicle => vehicle.value === String(route.vehicleId));
   const studentIds = (route.studentIds || []).map(String);
-  const waypoints = (route.waypoints || []).map((waypoint, index) => ({
+  const waypoints = (route.waypoints || []).map((waypoint) => ({
     ...waypoint,
-    studentIds: waypoint.studentIds?.length
-      ? waypoint.studentIds.map(String)
-      : index === 0
-        ? studentIds
-        : [],
+    studentIds: (waypoint.studentIds || []).map(String),
   }));
 
   return {
@@ -529,6 +525,7 @@ function openEdit(route) {
 async function saveRoute() {
   if (!form.value.name) return;
   syncOriginDest();
+  syncStudentIdsFromWaypoints();
   savingTrip.value = true;
 
   try {
